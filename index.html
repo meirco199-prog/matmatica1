@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת לימוד חשבון</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f4f8; color: #222; direction: rtl; }
+
+/* ===== LOGIN ===== */
+#login-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(135deg,#1a73e8,#0d47a1); padding:20px; }
+.login-title { color:white; font-size:2.2rem; font-weight:800; margin-bottom:6px; }
+.login-sub { color:rgba(255,255,255,.8); font-size:1rem; margin-bottom:36px; }
+.user-cards { display:flex; gap:18px; flex-wrap:wrap; justify-content:center; margin-bottom:28px; }
+.user-card { background:white; border-radius:20px; padding:24px 28px; text-align:center; cursor:pointer; box-shadow:0 8px 32px #0003; border:3px solid transparent; transition:all .2s; min-width:150px; }
+.user-card:hover { transform:translateY(-4px); box-shadow:0 14px 40px #0004; }
+.user-card.selected { border-color:#fbbc04; transform:translateY(-4px); }
+.user-avatar { width:72px; height:72px; border-radius:50%; object-fit:cover; margin:0 auto 10px; display:block; font-size:3rem; line-height:72px; text-align:center; background:#f0f4f8; }
+.user-avatar-emoji { font-size:3rem; line-height:72px; width:72px; height:72px; display:block; text-align:center; margin:0 auto 10px; }
+.user-card .uname { font-size:1.2rem; font-weight:700; color:#222; }
+.user-card .urole { font-size:0.8rem; color:#888; margin-top:3px; }
+
+.pin-area { background:white; border-radius:16px; padding:22px 28px; text-align:center; box-shadow:0 4px 20px #0002; min-width:280px; }
+.pin-area h3 { font-size:1.05rem; color:#333; margin-bottom:14px; }
+.pin-dots { display:flex; gap:10px; justify-content:center; margin-bottom:18px; }
+.pin-dot { width:15px; height:15px; border-radius:50%; background:#e0e0e0; transition:background .12s; }
+.pin-dot.filled { background:#1a73e8; }
+.pin-keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; max-width:230px; margin:0 auto 12px; }
+.pin-key { padding:13px; border:none; border-radius:10px; background:#f0f4f8; font-size:1.15rem; font-weight:700; cursor:pointer; transition:background .1s; color:#222; }
+.pin-key:hover { background:#e8f0fe; }
+.pin-key:active { background:#1a73e8; color:white; }
+.pin-key.del { background:#fce8e6; color:#ea4335; }
+.pin-key.del:hover { background:#ea4335; color:white; }
+.pin-error { color:#ea4335; font-size:0.86rem; margin-top:6px; min-height:18px; }
+.pin-hint { font-size:0.76rem; color:#bbb; margin-top:6px; }
+.change-pin-link { font-size:0.78rem; color:#1a73e8; cursor:pointer; margin-top:10px; text-decoration:underline; }
+
+/* ===== APP ===== */
+#app-shell { display:none; }
+header { background:linear-gradient(135deg,#1a73e8,#0d47a1); color:white; padding:13px 22px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 8px #0003; }
+header h1 { font-size:1.35rem; }
+.header-user { background:rgba(255,255,255,.2); border-radius:20px; padding:5px 14px; font-size:0.88rem; display:flex; align-items:center; gap:6px; }
+.header-avatar { width:28px; height:28px; border-radius:50%; object-fit:cover; }
+.logout-btn { background:rgba(255,255,255,.15); border:none; color:white; padding:6px 13px; border-radius:8px; cursor:pointer; font-size:0.83rem; }
+.logout-btn:hover { background:rgba(255,255,255,.3); }
+
+.main-layout { display:flex; min-height:calc(100vh - 56px); }
+.sidebar { width:225px; background:#fff; border-left:2px solid #e0e0e0; padding:10px 0; flex-shrink:0; overflow-y:auto; }
+.sidebar-title { font-size:0.7rem; font-weight:700; color:#bbb; text-transform:uppercase; letter-spacing:.05em; padding:8px 15px 3px; }
+.sidebar-btn { display:block; width:100%; text-align:right; padding:9px 15px; background:none; border:none; cursor:pointer; font-size:0.9rem; color:#333; border-right:3px solid transparent; transition:all .12s; }
+.sidebar-btn:hover { background:#e8f0fe; color:#1a73e8; }
+.sidebar-btn.active { background:#e8f0fe; color:#1a73e8; border-right-color:#1a73e8; font-weight:600; }
+.sidebar-btn .icon { margin-left:7px; }
+.content { flex:1; padding:20px; overflow-y:auto; }
+
+/* Buttons */
+.btn { padding:8px 16px; border:none; border-radius:8px; cursor:pointer; font-size:0.87rem; font-weight:600; transition:all .12s; }
+.btn-primary { background:#1a73e8; color:white; } .btn-primary:hover { background:#1558b0; }
+.btn-success { background:#34a853; color:white; } .btn-success:hover { background:#2d8f46; }
+.btn-warning { background:#fbbc04; color:#222; } .btn-warning:hover { background:#e0a800; }
+.btn-danger { background:#ea4335; color:white; } .btn-danger:hover { background:#c5221f; }
+.btn-outline { background:white; border:2px solid #1a73e8; color:#1a73e8; } .btn-outline:hover { background:#e8f0fe; }
+.btn-sm { padding:5px 11px; font-size:0.8rem; }
+
+/* Grade bar */
+.grade-bar { display:flex; gap:7px; flex-wrap:wrap; margin-bottom:16px; }
+.grade-btn { padding:6px 13px; border:2px solid #1a73e8; border-radius:20px; background:white; color:#1a73e8; cursor:pointer; font-size:0.86rem; font-weight:600; transition:all .12s; }
+.grade-btn.active, .grade-btn:hover { background:#1a73e8; color:white; }
+
+/* Exercise */
+.exercise-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:13px; flex-wrap:wrap; gap:9px; }
+.exercise-title { font-size:1.15rem; font-weight:700; color:#1a73e8; }
+.exercise-controls { display:flex; gap:7px; flex-wrap:wrap; }
+.stats-bar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.stat-chip { background:white; border-radius:10px; padding:5px 11px; font-size:0.81rem; box-shadow:0 1px 4px #0001; border:1px solid #e0e0e0; }
+.stat-chip b { color:#1a73e8; }
+.stat-chip.correct { border-color:#34a853; } .stat-chip.correct b { color:#34a853; }
+.stat-chip.wrong { border-color:#ea4335; } .stat-chip.wrong b { color:#ea4335; }
+.progress-wrap { background:#e0e0e0; border-radius:10px; height:8px; margin-bottom:13px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:10px; background:linear-gradient(90deg,#34a853,#1a73e8); transition:width .3s; }
+.exercise-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(295px,1fr)); gap:10px; }
+.exercise-card { background:white; border-radius:12px; padding:14px; box-shadow:0 1px 5px #0001; border:2px solid #e8eaed; transition:all .15s; position:relative; }
+.exercise-card.answered-correct { border-color:#34a853; background:#f0faf4; }
+.exercise-card.answered-wrong { border-color:#ea4335; background:#fff5f5; }
+.exercise-num { position:absolute; top:8px; left:11px; font-size:0.7rem; color:#ccc; font-weight:600; }
+.exercise-q { font-size:1.2rem; font-weight:700; margin-bottom:10px; text-align:center; color:#222; line-height:1.6; }
+.exercise-q .fraction { display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin:0 3px; }
+.exercise-q .fraction .num { border-bottom:2px solid #222; padding-bottom:1px; line-height:1.2; }
+.exercise-q .fraction .den { line-height:1.2; }
+.answer-row { display:flex; gap:7px; align-items:center; }
+.answer-input { flex:1; padding:7px 10px; border:2px solid #e0e0e0; border-radius:8px; font-size:1rem; text-align:center; outline:none; transition:border .12s; }
+.answer-input:focus { border-color:#1a73e8; }
+.answer-input.correct { border-color:#34a853; background:#f0faf4; }
+.answer-input.wrong { border-color:#ea4335; background:#fff5f5; }
+.check-btn { padding:7px 12px; background:#1a73e8; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.82rem; font-weight:600; white-space:nowrap; }
+.check-btn:hover { background:#1558b0; }
+.result-icon { font-size:1.3rem; min-width:26px; text-align:center; }
+.correct-answer { font-size:0.78rem; color:#ea4335; margin-top:5px; font-weight:600; }
+.mark-done-btn { position:absolute; top:8px; right:11px; background:none; border:none; cursor:pointer; font-size:1rem; opacity:.35; transition:opacity .12s; }
+.mark-done-btn:hover, .mark-done-btn.active { opacity:1; }
+.input-hint { font-size:0.71rem; color:#bbb; margin-top:3px; text-align:center; }
+
+/* Mult table */
+.mult-table { overflow-x:auto; margin-top:12px; }
+.mult-table table { border-collapse:collapse; }
+.mult-table td, .mult-table th { width:43px; height:43px; text-align:center; font-size:0.9rem; border:1px solid #e0e0e0; }
+.mult-table th { background:#1a73e8; color:white; font-weight:700; }
+.mult-table td { background:white; cursor:pointer; transition:background .08s; }
+.mult-table td:hover { background:#e8f0fe; }
+.mult-table td.highlight { background:#bbdefb; }
+.mult-table td.header-col { background:#1a73e8; color:white; font-weight:700; cursor:default; }
+
+/* Modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:#0007; z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:white; border-radius:16px; padding:26px; max-width:480px; width:93%; box-shadow:0 8px 32px #0003; }
+.modal h2 { font-size:1.3rem; margin-bottom:14px; text-align:center; }
+.score-big { font-size:2.8rem; font-weight:800; color:#1a73e8; text-align:center; margin:10px 0; }
+.score-detail { font-size:0.93rem; color:#555; text-align:center; margin-bottom:18px; }
+.modal-btns { display:flex; gap:9px; justify-content:center; flex-wrap:wrap; }
+
+/* Welcome */
+.welcome { text-align:center; padding:28px 14px; }
+.welcome h2 { font-size:1.75rem; color:#1a73e8; margin-bottom:7px; }
+.welcome p { color:#666; font-size:0.97rem; margin-bottom:24px; }
+.topic-cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:12px; max-width:840px; margin:0 auto; }
+.topic-card { background:white; border-radius:13px; padding:18px 12px; text-align:center; cursor:pointer; box-shadow:0 2px 8px #0001; border:2px solid #e8eaed; transition:all .18s; }
+.topic-card:hover { border-color:#1a73e8; transform:translateY(-2px); box-shadow:0 6px 18px #1a73e820; }
+.topic-card .topic-icon { font-size:2rem; margin-bottom:7px; }
+.topic-card .topic-name { font-weight:700; font-size:0.94rem; }
+.topic-card .topic-desc { font-size:0.76rem; color:#999; margin-top:3px; }
+
+/* Session History */
+.session-list { display:flex; flex-direction:column; gap:10px; }
+.session-item { background:white; border-radius:12px; padding:14px 16px; border:2px solid #e8eaed; display:flex; align-items:center; justify-content:space-between; cursor:pointer; transition:all .15s; }
+.session-item:hover { border-color:#1a73e8; box-shadow:0 4px 14px #1a73e815; }
+.session-info { flex:1; }
+.session-topic { font-weight:700; font-size:0.97rem; color:#222; }
+.session-meta { font-size:0.78rem; color:#999; margin-top:3px; }
+.session-score { font-size:1.2rem; font-weight:800; color:#1a73e8; min-width:60px; text-align:center; }
+.session-score.great { color:#34a853; }
+.session-score.bad { color:#ea4335; }
+.no-history { text-align:center; padding:40px; color:#bbb; font-size:1rem; }
+.readonly-badge { position:absolute; top:8px; left:40px; background:#fbbc04; color:#222; font-size:0.68rem; font-weight:700; padding:2px 8px; border-radius:8px; }
+
+/* Settings */
+.settings-section { background:white; border-radius:14px; padding:20px; margin-bottom:16px; box-shadow:0 1px 6px #0001; }
+.settings-section h3 { font-size:1rem; font-weight:700; margin-bottom:14px; color:#333; }
+.emoji-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+.emoji-opt { font-size:2rem; cursor:pointer; padding:6px; border-radius:8px; border:2px solid transparent; transition:all .12s; }
+.emoji-opt:hover { background:#e8f0fe; }
+.emoji-opt.selected { border-color:#1a73e8; background:#e8f0fe; }
+.upload-label { display:inline-block; padding:8px 16px; background:#f0f4f8; border:2px dashed #bbb; border-radius:10px; cursor:pointer; font-size:0.87rem; color:#555; transition:all .12s; }
+.upload-label:hover { border-color:#1a73e8; color:#1a73e8; }
+.new-pin-row { display:flex; gap:8px; align-items:center; margin-top:10px; }
+.new-pin-input { flex:1; padding:9px 14px; border:2px solid #e0e0e0; border-radius:8px; font-size:1rem; text-align:center; outline:none; letter-spacing:.3em; }
+.new-pin-input:focus { border-color:#1a73e8; }
+.current-avatar-preview { width:80px; height:80px; border-radius:50%; object-fit:cover; display:block; margin:0 auto 12px; font-size:3rem; line-height:80px; text-align:center; background:#f0f4f8; border:3px solid #e0e0e0; }
+
+/* Parent dashboard */
+.dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:14px; }
+.child-card { background:white; border-radius:15px; padding:22px; box-shadow:0 2px 10px #0001; border:2px solid #e8eaed; }
+.child-card h3 { font-size:1.2rem; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+.child-stat { display:flex; justify-content:space-between; margin-bottom:8px; font-size:0.9rem; }
+.child-stat b { color:#1a73e8; }
+.topic-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:0.8rem; }
+.topic-row .tname { min-width:90px; }
+.topic-row .tbar-wrap { flex:1; height:7px; background:#e0e0e0; border-radius:4px; overflow:hidden; }
+.topic-row .tbar { height:100%; border-radius:4px; background:#34a853; }
+.topic-row .tpct { min-width:34px; text-align:left; color:#666; }
+.reset-child-btn { margin-top:14px; padding:6px 13px; background:#fce8e6; color:#ea4335; border:none; border-radius:8px; cursor:pointer; font-size:0.8rem; font-weight:600; }
+.reset-child-btn:hover { background:#ea4335; color:white; }
+
+@media(max-width:600px) {
+  .sidebar { display:none; }
+  .exercise-grid { grid-template-columns:1fr; }
+  .dashboard-grid { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-title">📐 לימוד חשבון</div>
+  <div class="login-sub">בחר את הפרופיל שלך</div>
+  <div class="user-cards" id="user-cards"></div>
+  <div class="pin-area" id="pin-area" style="display:none;">
+    <h3 id="pin-title">הכנס קוד</h3>
+    <div class="pin-dots" id="pin-dots">
+      <div class="pin-dot" id="dot-0"></div><div class="pin-dot" id="dot-1"></div>
+      <div class="pin-dot" id="dot-2"></div><div class="pin-dot" id="dot-3"></div>
+    </div>
+    <div class="pin-keypad">
+      <button class="pin-key" onclick="pinPress('1')">1</button>
+      <button class="pin-key" onclick="pinPress('2')">2</button>
+      <button class="pin-key" onclick="pinPress('3')">3</button>
+      <button class="pin-key" onclick="pinPress('4')">4</button>
+      <button class="pin-key" onclick="pinPress('5')">5</button>
+      <button class="pin-key" onclick="pinPress('6')">6</button>
+      <button class="pin-key" onclick="pinPress('7')">7</button>
+      <button class="pin-key" onclick="pinPress('8')">8</button>
+      <button class="pin-key" onclick="pinPress('9')">9</button>
+      <button class="pin-key" style="font-size:.85rem;" onclick="pinClear()">ביטול</button>
+      <button class="pin-key" onclick="pinPress('0')">0</button>
+      <button class="pin-key del" onclick="pinDel()">⌫</button>
+    </div>
+    <div class="pin-error" id="pin-error"></div>
+    <div class="pin-hint" id="pin-hint"></div>
+    <div class="change-pin-link" id="change-pin-link" onclick="openChangePinModal()" style="display:none;">שנה קוד</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-shell">
+  <header>
+    <h1>📐 לימוד חשבון</h1>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="header-user" id="header-user"></div>
+      <button class="logout-btn" onclick="logout()">יציאה</button>
+    </div>
+  </header>
+  <div class="main-layout">
+    <nav class="sidebar" id="sidebar"></nav>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- Results Modal -->
+<div class="modal-overlay" id="results-modal">
+  <div class="modal">
+    <h2>🎉 סיימת את הסט!</h2>
+    <div class="score-big" id="modal-score"></div>
+    <div class="score-detail" id="modal-detail"></div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" onclick="closeModal();generateExercises()">סט חדש</button>
+      <button class="btn btn-outline" onclick="closeModal()">חזור</button>
+    </div>
+  </div>
+</div>
+
+<!-- Change PIN Modal -->
+<div class="modal-overlay" id="change-pin-modal">
+  <div class="modal">
+    <h2>🔐 שנה קוד כניסה</h2>
+    <p style="font-size:.88rem;color:#666;text-align:center;margin-bottom:16px;">הכנס קוד חדש (4 ספרות)</p>
+    <div style="text-align:center;">
+      <input type="password" inputmode="numeric" maxlength="4" class="new-pin-input" id="new-pin-input" placeholder="____">
+      <input type="password" inputmode="numeric" maxlength="4" class="new-pin-input" id="confirm-pin-input" placeholder="חזור על הקוד" style="margin-top:8px;">
+      <div style="color:#ea4335;font-size:.83rem;margin-top:6px;min-height:18px;" id="pin-modal-error"></div>
+    </div>
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="saveNewPin()">שמור</button>
+      <button class="btn btn-outline" onclick="closeChangePinModal()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- Avatar Modal -->
+<div class="modal-overlay" id="avatar-modal">
+  <div class="modal">
+    <h2>🖼️ בחר תמונה</h2>
+    <div id="avatar-modal-content"></div>
+    <div class="modal-btns" style="margin-top:16px;">
+      <button class="btn btn-primary" onclick="saveAvatar()">שמור</button>
+      <button class="btn btn-outline" onclick="document.getElementById('avatar-modal').classList.remove('open')">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DEFAULTS
+// ============================================================
+const DEFAULT_PINS   = { adar:'1234', agam:'5678', parent:'0000' };
+const DEFAULT_AVATARS= { adar:'🧒', agam:'👧', parent:'👨‍👩‍👧‍👦' };
+const USER_NAMES     = { adar:'אדר', agam:'אגם', parent:'הורה' };
+const USER_ROLES     = { adar:'תלמיד', agam:'תלמידה', parent:'ניהול ומעקב' };
+const EMOJIS = ['🧒','👦','👧','🧑','👩','👨','🧔','👱','🧒‍♀️','🧒‍♂️','🐱','🐶','🦁','🐯','🦊','🐸','🐧','🦋','⭐','🌟','🚀','🎮','🎨','🎵','🏆','🌈','🦄','🐉','🍕','🎃'];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentUser = null;
+let selectedUser = null;
+let pinBuffer = '';
+let currentTopic = 'mixed';
+let currentGrade = 3;
+let exercises = [];
+let answered = {};
+let isReadOnly = false;
+let pendingAvatar = null;
+
+// ============================================================
+// STORAGE HELPERS
+// ============================================================
+function getPin(uid)    { return localStorage.getItem('pin_'+uid)    || DEFAULT_PINS[uid]; }
+function getAvatar(uid) { return localStorage.getItem('avatar_'+uid) || DEFAULT_AVATARS[uid]; }
+function setPin(uid,p)  { localStorage.setItem('pin_'+uid, p); }
+function setAvatar(uid,a){ localStorage.setItem('avatar_'+uid, a); }
+
+function getSessions(uid) { try { return JSON.parse(localStorage.getItem('sessions_'+uid)||'[]'); } catch(e){ return []; } }
+function saveSessions(uid,arr) { localStorage.setItem('sessions_'+uid, JSON.stringify(arr.slice(-40))); }
+
+function getProgress(uid) { try { return JSON.parse(localStorage.getItem('progress_'+uid)||'{}'); } catch(e){ return {}; } }
+function resetProgress(uid) { localStorage.removeItem('progress_'+uid); localStorage.removeItem('sessions_'+uid); }
+function saveProgressEntry(uid, topic, grade, total, correct) {
+  const p=getProgress(uid);
+  if(!p[topic]) p[topic]={};
+  if(!p[topic][grade]) p[topic][grade]={sessions:0,total:0,correct:0};
+  p[topic][grade].sessions++; p[topic][grade].total+=total; p[topic][grade].correct+=correct;
+  localStorage.setItem('progress_'+uid, JSON.stringify(p));
+}
+
+// ============================================================
+// AVATAR RENDER HELPER
+// ============================================================
+function avatarHtml(uid, cls='user-avatar') {
+  const av=getAvatar(uid);
+  if(av.startsWith('data:')) return `<img src="${av}" class="${cls}">`;
+  return `<span class="${cls}-emoji">${av}</span>`;
+}
+
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+function renderLoginCards() {
+  const c=document.getElementById('user-cards');
+  c.innerHTML = ['adar','agam','parent'].map(uid=>`
+    <div class="user-card" onclick="selectUser('${uid}')" id="card-${uid}">
+      ${avatarHtml(uid)}
+      <div class="uname">${USER_NAMES[uid]}</div>
+      <div class="urole">${USER_ROLES[uid]}</div>
+    </div>
+  `).join('');
+}
+
+function selectUser(uid) {
+  selectedUser=uid;
+  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
+  document.getElementById('card-'+uid).classList.add('selected');
+  document.getElementById('pin-title').textContent=`היי ${USER_NAMES[uid]}! הכנס קוד`;
+  document.getElementById('pin-hint').textContent='';
+  document.getElementById('pin-error').textContent='';
+  document.getElementById('change-pin-link').style.display='none';
+  pinBuffer=''; updateDots();
+  document.getElementById('pin-area').style.display='block';
+  document.getElementById('pin-area').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+function pinPress(d) {
+  if(pinBuffer.length>=4) return;
+  pinBuffer+=d; updateDots();
+  if(pinBuffer.length===4) setTimeout(checkPin,200);
+}
+function pinDel() { if(pinBuffer.length){pinBuffer=pinBuffer.slice(0,-1);updateDots();} }
+function pinClear() {
+  pinBuffer=''; updateDots();
+  document.getElementById('pin-area').style.display='none';
+  selectedUser=null;
+  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
+}
+function updateDots() {
+  for(let i=0;i<4;i++) document.getElementById('dot-'+i).classList.toggle('filled',i<pinBuffer.length);
+}
+function checkPin() {
+  if(pinBuffer===getPin(selectedUser)) { loginAs(selectedUser); }
+  else {
+    document.getElementById('pin-error').textContent='קוד שגוי, נסה שוב';
+    document.getElementById('change-pin-link').style.display='block';
+    pinBuffer=''; updateDots();
+  }
+}
+
+function loginAs(uid) {
+  currentUser=uid;
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-shell').style.display='block';
+  const av=getAvatar(uid);
+  const avEl=av.startsWith('data:')?`<img src="${av}" class="header-avatar">`:av;
+  document.getElementById('header-user').innerHTML=avEl+' '+USER_NAMES[uid];
+  const savedGrade=localStorage.getItem('grade_'+uid);
+  if(savedGrade) currentGrade=parseInt(savedGrade);
+  else currentGrade=uid==='parent'?3:3;
+  buildSidebar();
+  if(uid==='parent') renderParentDash();
+  else renderWelcome();
+}
+
+function logout() {
+  currentUser=null; selectedUser=null; pinBuffer=''; exercises=[]; answered=[]; isReadOnly=false;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-shell').style.display='none';
+  document.getElementById('pin-area').style.display='none';
+  document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
+  updateDots(); renderLoginCards();
+}
+
+// ============================================================
+// CHANGE PIN MODAL
+// ============================================================
+function openChangePinModal() {
+  document.getElementById('new-pin-input').value='';
+  document.getElementById('confirm-pin-input').value='';
+  document.getElementById('pin-modal-error').textContent='';
+  document.getElementById('change-pin-modal').classList.add('open');
+}
+function closeChangePinModal() { document.getElementById('change-pin-modal').classList.remove('open'); }
+function saveNewPin() {
+  const np=document.getElementById('new-pin-input').value.trim();
+  const cp=document.getElementById('confirm-pin-input').value.trim();
+  if(!/^\d{4}$/.test(np)){ document.getElementById('pin-modal-error').textContent='חייב להיות 4 ספרות'; return; }
+  if(np!==cp){ document.getElementById('pin-modal-error').textContent='הקודים לא תואמים'; return; }
+  setPin(selectedUser, np);
+  closeChangePinModal();
+  document.getElementById('pin-error').textContent='✅ הקוד שונה! נסה שוב';
+}
+
+// ============================================================
+// AVATAR MODAL
+// ============================================================
+function openAvatarModal() {
+  pendingAvatar=null;
+  const cur=getAvatar(currentUser);
+  let html=`<div style="text-align:center;margin-bottom:14px;">`;
+  if(cur.startsWith('data:')) html+=`<img src="${cur}" class="current-avatar-preview">`;
+  else html+=`<div class="current-avatar-preview">${cur}</div>`;
+  html+=`<div style="font-size:.8rem;color:#999;margin-bottom:12px;">תמונה נוכחית</div></div>`;
+  html+=`<div style="font-size:.87rem;font-weight:700;margin-bottom:8px;">בחר אימוג׳י:</div>`;
+  html+=`<div class="emoji-grid">`;
+  EMOJIS.forEach(e=>{
+    html+=`<span class="emoji-opt${e===cur?' selected':''}" onclick="selectEmoji(this,'${e}')">${e}</span>`;
+  });
+  html+=`</div>`;
+  html+=`<div style="font-size:.87rem;font-weight:700;margin:12px 0 8px;">או העלה תמונה:</div>`;
+  html+=`<label class="upload-label">📁 בחר תמונה<input type="file" accept="image/*" style="display:none" onchange="handleImageUpload(event)"></label>`;
+  html+=`<div id="upload-preview" style="margin-top:10px;text-align:center;"></div>`;
+  document.getElementById('avatar-modal-content').innerHTML=html;
+  document.getElementById('avatar-modal').classList.add('open');
+}
+
+function selectEmoji(el, emoji) {
+  document.querySelectorAll('.emoji-opt').forEach(e=>e.classList.remove('selected'));
+  el.classList.add('selected');
+  pendingAvatar=emoji;
+  document.getElementById('upload-preview').innerHTML='';
+}
+
+function handleImageUpload(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    pendingAvatar=ev.target.result;
+    document.getElementById('upload-preview').innerHTML=`<img src="${pendingAvatar}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:3px solid #1a73e8;">`;
+    document.querySelectorAll('.emoji-opt').forEach(e=>e.classList.remove('selected'));
+  };
+  reader.readAsDataURL(file);
+}
+
+function saveAvatar() {
+  if(!pendingAvatar) { document.getElementById('avatar-modal').classList.remove('open'); return; }
+  setAvatar(currentUser, pendingAvatar);
+  document.getElementById('avatar-modal').classList.remove('open');
+  // Update header
+  const av=getAvatar(currentUser);
+  const avEl=av.startsWith('data:')?`<img src="${av}" class="header-avatar">`:av;
+  document.getElementById('header-user').innerHTML=avEl+' '+USER_NAMES[currentUser];
+  renderLoginCards();
+  renderWelcome();
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function buildSidebar() {
+  const isParent=currentUser==='parent';
+  let html='';
+  if(!isParent) {
+    html+=`
+      <div><div class="sidebar-title">ניווט</div>
+        <button class="sidebar-btn" onclick="showSection('welcome')"><span class="icon">🏠</span> דף הבית</button>
+        <button class="sidebar-btn" onclick="showSection('mult-table')"><span class="icon">✖️</span> לוח הכפל</button>
+        <button class="sidebar-btn" onclick="showSection('history')"><span class="icon">📂</span> סטים שעשיתי</button>
+        <button class="sidebar-btn" onclick="showSection('settings')"><span class="icon">⚙️</span> הגדרות</button>
+      </div>
+      <div><div class="sidebar-title">נושאים</div>
+        <button class="sidebar-btn" onclick="startTopic('addition')"><span class="icon">➕</span> חיבור</button>
+        <button class="sidebar-btn" onclick="startTopic('subtraction')"><span class="icon">➖</span> חיסור</button>
+        <button class="sidebar-btn" onclick="startTopic('multiplication')"><span class="icon">✖️</span> כפל</button>
+        <button class="sidebar-btn" onclick="startTopic('division')"><span class="icon">➗</span> חילוק</button>
+        <button class="sidebar-btn" onclick="startTopic('long-division')"><span class="icon">📏</span> חילוק ארוך</button>
+        <button class="sidebar-btn" onclick="startTopic('fractions')"><span class="icon">½</span> שברים</button>
+        <button class="sidebar-btn" onclick="startTopic('frac-simplify')"><span class="icon">🔢</span> צמצום שברים</button>
+        <button class="sidebar-btn" onclick="startTopic('decimals')"><span class="icon">📍</span> עשרוניים</button>
+        <button class="sidebar-btn" onclick="startTopic('mixed')"><span class="icon">🎲</span> מעורב</button>
+      </div>
+      <div><div class="sidebar-title">רמה</div>
+        ${[2,3,4,5,6].map(g=>`<button class="sidebar-btn" onclick="setGrade(${g})">כיתה ${gradeHeb(g)}</button>`).join('')}
+      </div>`;
+  } else {
+    html+=`<div><div class="sidebar-title">ניהול</div>
+      <button class="sidebar-btn active" onclick="renderParentDash()"><span class="icon">📊</span> לוח בקרה</button>
+      <button class="sidebar-btn" onclick="showSection('settings')"><span class="icon">⚙️</span> הגדרות</button>
+    </div>`;
+  }
+  document.getElementById('sidebar').innerHTML=html;
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b];}return a;}
+function lcm(a,b){return(a*b)/gcd(a,b);}
+function rnd(mn,mx){return Math.floor(Math.random()*(mx-mn+1))+mn;}
+function simplify(n,d){const g=gcd(Math.abs(n),Math.abs(d));return[n/g,d/g];}
+function gradeHeb(g){return['','א׳','ב׳','ג׳','ד׳','ה׳','ו׳'][g]||g;}
+const TOPIC_NAMES={'addition':'חיבור','subtraction':'חיסור','multiplication':'כפל','division':'חילוק','long-division':'חילוק ארוך','fractions':'שברים','frac-simplify':'צמצום שברים','decimals':'עשרוניים','mixed':'מעורב'};
+
+function fmtFraction(n,d){
+  if(d===1) return String(n);
+  return `<span class="fraction"><span class="num">${n}</span><span class="den">${d}</span></span>`;
+}
+function parseFractionInput(val){
+  val=val.trim().replace(/\s/g,'');
+  if(/^-?\d+\/\d+$/.test(val)){const[n,d]=val.split('/').map(Number);return{n,d,valid:d!==0};}
+  if(/^-?\d+$/.test(val)) return{n:parseInt(val),d:1,valid:true};
+  if(/^-?\d+[.,]\d+$/.test(val)){const f=parseFloat(val.replace(',','.'));const dec=(val.replace(',','.').split('.')[1]||'').length;return{n:Math.round(f*Math.pow(10,dec)),d:Math.pow(10,dec),valid:true};}
+  return{valid:false};
+}
+function fractionsEqual(n1,d1,n2,d2){return n1*d2===n2*d1;}
+
+// ============================================================
+// GENERATORS
+// ============================================================
+const generators={
+  addition:(g)=>{
+    if(g<=2){const a=rnd(1,20),b=rnd(1,20);return{q:`${a} + ${b} = ?`,ans:a+b,type:'int'};}
+    if(g<=3){const a=rnd(10,99),b=rnd(10,99);return{q:`${a} + ${b} = ?`,ans:a+b,type:'int'};}
+    if(g<=4){const a=rnd(100,999),b=rnd(100,999);return{q:`${a} + ${b} = ?`,ans:a+b,type:'int'};}
+    const a=rnd(1000,9999),b=rnd(1000,9999);return{q:`${a} + ${b} = ?`,ans:a+b,type:'int'};
+  },
+  subtraction:(g)=>{
+    if(g<=2){const b=rnd(1,15),a=rnd(b,20);return{q:`${a} - ${b} = ?`,ans:a-b,type:'int'};}
+    if(g<=3){const b=rnd(10,90),a=rnd(b+1,199);return{q:`${a} - ${b} = ?`,ans:a-b,type:'int'};}
+    const b=rnd(100,900),a=rnd(b+1,1999);return{q:`${a} - ${b} = ?`,ans:a-b,type:'int'};
+  },
+  multiplication:(g)=>{
+    if(g<=3){const a=rnd(1,10),b=rnd(1,10);return{q:`${a} × ${b} = ?`,ans:a*b,type:'int'};}
+    if(g<=4){const a=rnd(2,12),b=rnd(10,99);return{q:`${a} × ${b} = ?`,ans:a*b,type:'int'};}
+    const a=rnd(10,99),b=rnd(10,99);return{q:`${a} × ${b} = ?`,ans:a*b,type:'int'};
+  },
+  division:(g)=>{
+    if(g<=3){const b=rnd(1,10),a=rnd(1,10);return{q:`${b*a} ÷ ${b} = ?`,ans:a,type:'int'};}
+    if(g<=4){const b=rnd(2,12),a=rnd(2,20);return{q:`${b*a} ÷ ${b} = ?`,ans:a,type:'int'};}
+    const b=rnd(2,12),a=rnd(10,50);return{q:`${b*a} ÷ ${b} = ?`,ans:a,type:'int'};
+  },
+  'long-division':(g)=>{
+    const div=rnd(2,g<=3?6:9),q=rnd(10,g<=4?50:99),r=g<=2?0:rnd(0,div-1);
+    const dividend=div*q+r;
+    return{q:`${dividend} ÷ ${div} = ?`,ans:r>0?`${q} שארית ${r}`:`${q}`,type:'long-div',extra:{dividend,divisor:div,quotient:q,remainder:r}};
+  },
+  fractions:(g)=>{
+    const ops=g<=3?['add','sub']:g<=4?['add','sub','mul']:['add','sub','mul','div'];
+    const op=ops[rnd(0,ops.length-1)];
+    let d1=rnd(2,g<=3?6:10),n1=rnd(1,d1-1),d2=g<=3?d1:rnd(2,8),n2=rnd(1,d2-1);
+    let qHtml,ansN,ansD;
+    if(op==='add'){const l=lcm(d1,d2);ansN=n1*(l/d1)+n2*(l/d2);ansD=l;qHtml=`${fmtFraction(n1,d1)} + ${fmtFraction(n2,d2)} = ?`;}
+    else if(op==='sub'){const l=lcm(d1,d2);let r1=n1*(l/d1),r2=n2*(l/d2);if(r1<r2){[n1,d1,n2,d2]=[n2,d2,n1,d1];[r1,r2]=[r2,r1];}ansN=r1-r2;ansD=l;qHtml=`${fmtFraction(n1,d1)} - ${fmtFraction(n2,d2)} = ?`;}
+    else if(op==='mul'){ansN=n1*n2;ansD=d1*d2;qHtml=`${fmtFraction(n1,d1)} × ${fmtFraction(n2,d2)} = ?`;}
+    else{ansN=n1*d2;ansD=d1*n2;qHtml=`${fmtFraction(n1,d1)} ÷ ${fmtFraction(n2,d2)} = ?`;}
+    const[sn,sd]=simplify(ansN,ansD);
+    return{q:qHtml,ans:`${sn}/${sd}`,ansN:sn,ansD:sd,type:'fraction',html:true};
+  },
+  'frac-simplify':(g)=>{
+    const d=rnd(2,g<=4?6:12),k=rnd(2,g<=4?4:8),n=rnd(1,d-1);
+    const[sn,sd]=simplify(n*k,d*k);
+    return{q:`${fmtFraction(n*k,d*k)} — צמצם`,ans:`${sn}/${sd}`,ansN:sn,ansD:sd,type:'fraction',html:true};
+  },
+  decimals:(g)=>{
+    const t=['add','sub','small-mul','small-mul'][rnd(0,3)];
+    if(t==='small-mul'){
+      const bases=[0.001,0.01,0.1,0.001,0.01],mults=[10,100,1000,45,7,25,50,200,500];
+      const base=bases[rnd(0,bases.length-1)],mult=mults[rnd(0,mults.length-1)];
+      return{q:`${base} × ${mult} = ?`,ans:String(parseFloat((base*mult).toPrecision(10))),type:'decimal'};
+    }
+    const dec=rnd(1,2),factor=Math.pow(10,dec);
+    if(t==='add'){const a=rnd(1,99)/factor,b=rnd(1,99)/factor;return{q:`${a.toFixed(dec)} + ${b.toFixed(dec)} = ?`,ans:String(parseFloat((a+b).toFixed(dec+1))),type:'decimal'};}
+    const b=rnd(1,40)/factor,a=rnd(50,99)/factor;
+    return{q:`${a.toFixed(dec)} - ${b.toFixed(dec)} = ?`,ans:String(parseFloat((a-b).toFixed(dec+1))),type:'decimal'};
+  },
+  mixed:(g)=>{
+    const pool=g<=2?['addition','subtraction','multiplication']:
+      g<=3?['addition','subtraction','multiplication','division']:
+      g<=4?['addition','subtraction','multiplication','division','long-division','fractions']:
+      ['multiplication','division','long-division','fractions','frac-simplify','decimals'];
+    return generators[pool[rnd(0,pool.length-1)]](g);
+  }
+};
+
+// ============================================================
+// GENERATE / RENDER EXERCISES
+// ============================================================
+function generateExercises(count) {
+  isReadOnly=false;
+  count=count||(currentGrade<=3?20:30);
+  exercises=[]; answered={};
+  for(let i=0;i<count;i++) exercises.push(generators[currentTopic](currentGrade));
+  showSection('exercises');
+}
+
+function renderExercises() {
+  const total=exercises.length,done=Object.keys(answered).length;
+  const correct=Object.values(answered).filter(a=>a.correct).length;
+  const wrong=Object.values(answered).filter(a=>!a.correct).length;
+
+  let html=`
+    <div class="exercise-header">
+      <div class="exercise-title">${isReadOnly?'📂':'📝'} ${TOPIC_NAMES[currentTopic]||currentTopic} — כיתה ${gradeHeb(currentGrade)}</div>
+      <div class="exercise-controls">
+        ${!isReadOnly?`<button class="btn btn-success" onclick="checkAll()">✅ בדוק הכל</button>`:''}
+        ${!isReadOnly?`<button class="btn btn-primary" onclick="generateExercises()">🔄 סט חדש</button>`:''}
+        ${!isReadOnly?`<button class="btn btn-warning" onclick="showResults()">📊 תוצאות</button>`:''}
+        <button class="btn btn-outline" onclick="showSection('history')">📂 היסטוריה</button>
+      </div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-chip">סה"כ: <b>${total}</b></div>
+      <div class="stat-chip">ענית: <b>${done}</b></div>
+      <div class="stat-chip correct">נכון: <b>${correct}</b></div>
+      <div class="stat-chip wrong">שגוי: <b>${wrong}</b></div>
+    </div>
+    <div class="progress-wrap"><div class="progress-fill" style="width:${total>0?done/total*100:0}%"></div></div>
+    <div class="exercise-grid">
+  `;
+
+  exercises.forEach((ex,i)=>{
+    const ans=answered[i];
+    let cc='exercise-card';
+    if(ans) cc+=ans.correct?' answered-correct':' answered-wrong';
+    let result='',inputClass='';
+    if(ans){
+      result=ans.correct?`<div class="result-icon">✅</div>`:`<div><div class="result-icon">❌</div><div class="correct-answer">תשובה: ${ex.ans}</div></div>`;
+      inputClass=ans.correct?'correct':'wrong';
+    }
+    const markActive=ans&&ans.marked?'active':'';
+    const hint=ex.type==='fraction'?'<div class="input-hint">פורמט: 3/4</div>':ex.type==='long-div'?'<div class="input-hint">לדוגמה: 12 שארית 3</div>':'';
+
+    html+=`<div class="${cc}" id="card-${i}">
+      <span class="exercise-num">#${i+1}</span>
+      ${isReadOnly?`<span class="readonly-badge">צפייה</span>`:`<button class="mark-done-btn ${markActive}" onclick="toggleMark(${i})">⭐</button>`}
+      <div class="exercise-q">${ex.q}</div>
+      <div class="answer-row">
+        <input type="text" class="answer-input ${inputClass}" id="input-${i}" value="${ans?ans.userAnswer:''}" placeholder="תשובה..." ${(ans||isReadOnly)?'disabled':''} onkeydown="if(event.key==='Enter')checkOne(${i})">
+        ${(!ans&&!isReadOnly)?`<button class="check-btn" onclick="checkOne(${i})">בדוק</button>`:''}
+        ${result}
+      </div>${hint}
+    </div>`;
+  });
+
+  html+='</div>';
+  document.getElementById('content').innerHTML=html;
+}
+
+// ============================================================
+// CHECK LOGIC
+// ============================================================
+function evalAnswer(ex, val) {
+  val=val.trim(); if(!val) return null;
+  let correct=false;
+  if(ex.type==='int') correct=parseInt(val)===ex.ans;
+  else if(ex.type==='fraction'){const p=parseFractionInput(val);if(p.valid)correct=fractionsEqual(p.n,p.d,ex.ansN,ex.ansD);}
+  else if(ex.type==='decimal'){correct=Math.abs(parseFloat(val.replace(',','.'))-parseFloat(ex.ans))<1e-9;}
+  else if(ex.type==='long-div'){
+    const e=ex.extra,v=val.trim().toLowerCase();
+    if(e.remainder===0) correct=parseInt(val)===e.quotient;
+    else correct=[new RegExp(`^${e.quotient}\\s*שארית\\s*${e.remainder}$`),new RegExp(`^${e.quotient}\\s*r\\s*${e.remainder}$`)].some(p=>p.test(v));
+  }
+  return correct;
+}
+
+function checkOne(i) {
+  const inp=document.getElementById('input-'+i);
+  const val=inp?inp.value:''; if(!val.trim()) return;
+  const correct=evalAnswer(exercises[i],val);
+  if(correct===null) return;
+  answered[i]={correct,userAnswer:val.trim(),marked:answered[i]?.marked||false};
+  renderExercises();
+  setTimeout(()=>{const el=document.getElementById('card-'+i);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},40);
+}
+
+// FIX: collect ALL values first, then evaluate all, then render ONCE
+function checkAll() {
+  const vals={};
+  exercises.forEach((_,i)=>{
+    if(!answered[i]){
+      const inp=document.getElementById('input-'+i);
+      if(inp&&inp.value.trim()) vals[i]=inp.value.trim();
+    }
+  });
+  Object.entries(vals).forEach(([i,val])=>{
+    const correct=evalAnswer(exercises[parseInt(i)],val);
+    if(correct!==null) answered[parseInt(i)]={correct,userAnswer:val,marked:answered[parseInt(i)]?.marked||false};
+  });
+  renderExercises();
+}
+
+function toggleMark(i) {
+  if(!answered[i]) answered[i]={correct:false,userAnswer:'',marked:false};
+  answered[i].marked=!answered[i].marked;
+  const b=document.querySelector(`#card-${i} .mark-done-btn`);
+  if(b) b.classList.toggle('active',answered[i].marked);
+}
+
+function showResults() {
+  const total=exercises.length,arr=Object.values(answered);
+  const correct=arr.filter(a=>a.correct).length,wrong=arr.filter(a=>!a.correct).length;
+  const unanswered=total-arr.length;
+  document.getElementById('modal-score').textContent=`${correct}/${total}`;
+  const pct=total>0?Math.round(correct/total*100):0;
+  const emoji=pct>=90?'🏆 מצוין!':pct>=70?'👍 כל הכבוד!':pct>=50?'📚 טוב, המשך!':'💪 תנסה שוב!';
+  document.getElementById('modal-detail').innerHTML=`<b>${pct}%</b> — ${emoji}<br>נכון: ${correct} · שגוי: ${wrong} · לא ענית: ${unanswered}`;
+  document.getElementById('results-modal').classList.add('open');
+
+  // Save session
+  const session={
+    id:Date.now(), uid:currentUser, topic:currentTopic, grade:currentGrade,
+    date:new Date().toLocaleDateString('he-IL'),
+    time:new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),
+    exercises:exercises.map(e=>({...e})),
+    answered:{...answered},
+    score:{correct,total,pct}
+  };
+  const sessions=getSessions(currentUser);
+  sessions.push(session);
+  saveSessions(currentUser,sessions);
+  saveProgressEntry(currentUser,currentTopic,currentGrade,total,correct);
+}
+function closeModal() { document.getElementById('results-modal').classList.remove('open'); }
+
+// ============================================================
+// HISTORY
+// ============================================================
+function showSection(sec) {
+  document.querySelectorAll('.sidebar-btn').forEach(b=>b.classList.remove('active'));
+  if(sec==='welcome') renderWelcome();
+  else if(sec==='mult-table') renderMultTable();
+  else if(sec==='exercises') renderExercises();
+  else if(sec==='history') renderHistory();
+  else if(sec==='settings') renderSettings();
+}
+
+function renderHistory() {
+  const sessions=getSessions(currentUser).slice().reverse();
+  let html=`<div class="exercise-header"><div class="exercise-title">📂 הסטים שעשיתי</div></div>`;
+  if(sessions.length===0){
+    html+=`<div class="no-history">עדיין אין סטים שמורים.<br>סיים סט תרגילים ולחץ "תוצאות" כדי לשמור.</div>`;
+  } else {
+    html+=`<div class="session-list">`;
+    sessions.forEach(s=>{
+      const pctClass=s.score.pct>=80?'great':s.score.pct<50?'bad':'';
+      html+=`<div class="session-item" onclick="loadSession(${s.id})">
+        <div class="session-info">
+          <div class="session-topic">${TOPIC_NAMES[s.topic]||s.topic} — כיתה ${gradeHeb(s.grade)}</div>
+          <div class="session-meta">${s.date} · ${s.time||''} · ${s.score.total} תרגילים</div>
+        </div>
+        <div class="session-score ${pctClass}">${s.score.correct}/${s.score.total}<div style="font-size:.65rem;font-weight:400;">${s.score.pct}%</div></div>
+      </div>`;
+    });
+    html+=`</div>`;
+  }
+  document.getElementById('content').innerHTML=html;
+}
+
+function loadSession(id) {
+  const sessions=getSessions(currentUser);
+  const s=sessions.find(x=>x.id===id);
+  if(!s) return;
+  exercises=s.exercises;
+  answered=s.answered;
+  currentTopic=s.topic;
+  currentGrade=s.grade;
+  isReadOnly=true;
+  showSection('exercises');
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function renderSettings() {
+  const av=getAvatar(currentUser);
+  const avEl=av.startsWith('data:')?`<img src="${av}" class="current-avatar-preview">`:
+    `<div class="current-avatar-preview">${av}</div>`;
+  let html=`
+    <div style="font-size:1.1rem;font-weight:700;color:#1a73e8;margin-bottom:16px;">⚙️ הגדרות</div>
+    <div class="settings-section">
+      <h3>🖼️ תמונת פרופיל</h3>
+      ${avEl}
+      <div style="text-align:center;"><button class="btn btn-primary" onclick="openAvatarModal()">שנה תמונה</button></div>
+    </div>
+    <div class="settings-section">
+      <h3>🔐 שינוי קוד כניסה</h3>
+      <p style="font-size:.85rem;color:#888;margin-bottom:12px;">הכנס קוד חדש (4 ספרות)</p>
+      <div class="new-pin-row">
+        <input type="password" inputmode="numeric" maxlength="4" class="new-pin-input" id="settings-pin1" placeholder="קוד חדש">
+        <input type="password" inputmode="numeric" maxlength="4" class="new-pin-input" id="settings-pin2" placeholder="חזור">
+        <button class="btn btn-primary" onclick="saveSettingsPin()">שמור</button>
+      </div>
+      <div style="color:#ea4335;font-size:.82rem;margin-top:6px;" id="settings-pin-msg"></div>
+    </div>
+  `;
+  if(currentUser==='parent') {
+    html+=`<div class="settings-section">
+      <h3>🗑️ אפס נתוני ילד</h3>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('לאפס את כל הנתונים של אדר?')){resetProgress('adar');alert('אופס!');}">אפס אדר</button>
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('לאפס את כל הנתונים של אגם?')){resetProgress('agam');alert('אופס!');}">אפס אגם</button>
+      </div>
+    </div>`;
+  }
+  document.getElementById('content').innerHTML=html;
+}
+
+function saveSettingsPin() {
+  const p1=document.getElementById('settings-pin1').value.trim();
+  const p2=document.getElementById('settings-pin2').value.trim();
+  const msg=document.getElementById('settings-pin-msg');
+  if(!/^\d{4}$/.test(p1)){msg.textContent='חייב להיות 4 ספרות';return;}
+  if(p1!==p2){msg.textContent='הקודים לא תואמים';return;}
+  setPin(currentUser,p1);
+  msg.style.color='#34a853'; msg.textContent='✅ הקוד שונה בהצלחה!';
+}
+
+// ============================================================
+// MULT TABLE
+// ============================================================
+function renderMultTable() {
+  const max=currentGrade<=2?5:currentGrade<=3?10:12;
+  let html=`<div class="exercise-header"><div class="exercise-title">✖️ לוח הכפל (עד ${max})</div><div class="exercise-controls"><button class="btn btn-primary" onclick="startTopic('multiplication')">🎯 תרגל!</button></div></div>`;
+  html+=`<div class="mult-table"><table><tr><th>×</th>`;
+  for(let i=1;i<=max;i++) html+=`<th>${i}</th>`;
+  html+='</tr>';
+  for(let i=1;i<=max;i++){
+    html+=`<tr><td class="header-col">${i}</td>`;
+    for(let j=1;j<=max;j++) html+=`<td onclick="hlCell(this,${i},${j})" id="mc-${i}-${j}">${i*j}</td>`;
+    html+='</tr>';
+  }
+  html+=`</table></div><div style="margin-top:7px;font-size:.8rem;color:#aaa;">לחץ על תא להדגשה</div>`;
+  document.getElementById('content').innerHTML=html;
+}
+function hlCell(el,r,c){
+  document.querySelectorAll('.mult-table td.highlight').forEach(t=>t.classList.remove('highlight'));
+  for(let j=1;j<=12;j++){const t=document.getElementById(`mc-${r}-${j}`);if(t)t.classList.add('highlight');}
+  for(let i=1;i<=12;i++){const t=document.getElementById(`mc-${i}-${c}`);if(t)t.classList.add('highlight');}
+  el.style.background='#ffd600';
+}
+
+// ============================================================
+// WELCOME
+// ============================================================
+function renderWelcome() {
+  const topics=[
+    {key:'addition',icon:'➕',name:'חיבור',desc:'חיבור מספרים'},
+    {key:'subtraction',icon:'➖',name:'חיסור',desc:'חיסור מספרים'},
+    {key:'multiplication',icon:'✖️',name:'כפל',desc:'לוח הכפל ועוד'},
+    {key:'division',icon:'➗',name:'חילוק',desc:'חילוק מספרים'},
+    {key:'long-division',icon:'📏',name:'חילוק ארוך',desc:'עם שאריות'},
+    {key:'fractions',icon:'½',name:'שברים',desc:'חיבור/חיסור/כפל/חילוק'},
+    {key:'frac-simplify',icon:'🔢',name:'צמצום שברים',desc:'מציאת הצורה הפשוטה'},
+    {key:'decimals',icon:'📍',name:'עשרוניים',desc:'0.001×100 ועוד'},
+    {key:'mixed',icon:'🎲',name:'מעורב',desc:'הכל ביחד!'},
+  ];
+  const av=getAvatar(currentUser);
+  const avEl=av.startsWith('data:')?`<img src="${av}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:8px;">`:
+    `<div style="font-size:3rem;">${av}</div>`;
+  let html=`<div class="welcome">
+    ${avEl}
+    <h2>שלום ${USER_NAMES[currentUser]}!</h2>
+    <p>בחר נושא כדי להתחיל לתרגל</p>
+    <div class="grade-bar" style="justify-content:center;margin-bottom:22px;">
+      ${[2,3,4,5,6].map(g=>`<button class="grade-btn ${g===currentGrade?'active':''}" onclick="setGrade(${g})">כיתה ${gradeHeb(g)}</button>`).join('')}
+    </div>
+    <div class="topic-cards">${topics.map(t=>`<div class="topic-card" onclick="startTopic('${t.key}')"><div class="topic-icon">${t.icon}</div><div class="topic-name">${t.name}</div><div class="topic-desc">${t.desc}</div></div>`).join('')}</div>
+  </div>`;
+  document.getElementById('content').innerHTML=html;
+}
+
+function startTopic(t){currentTopic=t;generateExercises();}
+function setGrade(g){currentGrade=g;localStorage.setItem('grade_'+currentUser,g);renderWelcome();}
+
+// ============================================================
+// PARENT DASHBOARD
+// ============================================================
+function renderParentDash() {
+  function childCard(uid){
+    const u=USER_NAMES[uid],p=getProgress(uid),av=getAvatar(uid);
+    const avEl=av.startsWith('data:')?`<img src="${av}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">`:av;
+    const topics=Object.keys(p);
+    if(!topics.length) return`<div class="child-card"><h3>${avEl} ${u}</h3><div style="color:#bbb;text-align:center;padding:20px;font-size:.9rem;">אין נתונים עדיין</div><button class="reset-child-btn" onclick="if(confirm('לאפס?')){resetProgress('${uid}');renderParentDash();}">🗑️ אפס</button></div>`;
+    let tot=0,cor=0,sess=0;
+    topics.forEach(t=>Object.values(p[t]).forEach(g=>{sess+=g.sessions;tot+=g.total;cor+=g.correct;}));
+    const pct=tot>0?Math.round(cor/tot*100):0;
+    let rows='';
+    topics.forEach(t=>{let tt=0,tc=0;Object.values(p[t]).forEach(g=>{tt+=g.total;tc+=g.correct;});const pp=tt>0?Math.round(tc/tt*100):0;rows+=`<div class="topic-row"><span class="tname">${TOPIC_NAMES[t]||t}</span><div class="tbar-wrap"><div class="tbar" style="width:${pp}%"></div></div><span class="tpct">${pp}%</span></div>`;});
+    return`<div class="child-card"><h3>${avEl} ${u}</h3>
+      <div class="child-stat"><span>מפגשים:</span><b>${sess}</b></div>
+      <div class="child-stat"><span>תרגילים:</span><b>${tot}</b></div>
+      <div class="child-stat"><span>נכון:</span><b>${cor} (${pct}%)</b></div>
+      <div class="progress-wrap" style="margin:10px 0 8px;"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div>${rows}</div>
+      <button class="reset-child-btn" onclick="if(confirm('לאפס את כל הנתונים של ${u}?')){resetProgress('${uid}');renderParentDash();}">🗑️ אפס נתונים</button>
+    </div>`;
+  }
+  document.getElementById('content').innerHTML=`
+    <div style="font-size:1.1rem;font-weight:700;color:#1a73e8;margin-bottom:14px;">📊 לוח בקרה הורה</div>
+    <div class="dashboard-grid">${['adar','agam'].map(childCard).join('')}</div>
+    <div style="margin-top:16px;font-size:.78rem;color:#ccc;text-align:center;">הנתונים נשמרים על המכשיר הזה בלבד</div>
+  `;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+renderLoginCards();
+</script>
+</body>
+</html>
