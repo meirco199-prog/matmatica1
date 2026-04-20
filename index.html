@@ -332,7 +332,6 @@ function getFamilyCode(){ return localStorage.getItem('familyCode')||''; }
 function initFirebase(config, code) {
   try {
     if (!config.databaseURL) throw new Error('databaseURL חסר');
-    // Delete previous instance if exists
     try { firebase.app('math-app').delete(); } catch(e){}
     const app = firebase.initializeApp(config, 'math-app');
     fbDb = firebase.database(app);
@@ -341,10 +340,26 @@ function initFirebase(config, code) {
     localStorage.setItem('familyCode', code);
     LS.set('fbConfig', config);
     updateSyncBadge('syncing','🔄 מתחבר...');
-    // Test connection
+    // Connection status
     fbDb.ref('.info/connected').on('value', snap => {
       if(snap.val()) updateSyncBadge('synced','☁️ מסונכרן');
       else updateSyncBadge('error','⚠️ אין חיבור');
+    });
+    // Real-time listeners: when any child's data changes in Firebase → update local + refresh parent dashboard
+    ['adar','agam'].forEach(uid => {
+      fbDb.ref(`families/${code}/${uid}`).on('value', snap => {
+        if(!snap.exists()) return;
+        const d = snap.val();
+        if(d.progress) LS.set('progress_'+uid, d.progress);
+        if(d.sessions) LS.set('sessions_'+uid, d.sessions);
+        if(d.avatar)   setAvatar(uid, d.avatar);
+        if(d.grade)    localStorage.setItem('grade_'+uid, d.grade);
+        // If parent is currently viewing dashboard, auto-refresh it
+        if(currentUser === 'parent') {
+          const title = document.querySelector('.exercise-title');
+          if(title && title.textContent.includes('לוח בקרה')) renderParentDash();
+        }
+      });
     });
     return true;
   } catch(e) {
@@ -371,6 +386,7 @@ async function pushUserData(uid) {
       sessions: getSessions(uid),
       avatar: getAvatar(uid),
       grade: localStorage.getItem('grade_'+uid)||'3',
+      pin: getPin(uid),
       lastSync: Date.now()
     };
     await fbDb.ref(`families/${familyCode}/${uid}`).set(data);
@@ -390,6 +406,7 @@ async function pullUserData(uid) {
       if(d.sessions) LS.set('sessions_'+uid, d.sessions);
       if(d.avatar)   setAvatar(uid, d.avatar);
       if(d.grade)    localStorage.setItem('grade_'+uid, d.grade);
+      if(d.pin)      setPin(uid, d.pin);
     }
     return true;
   } catch(e){ return false; }
@@ -413,13 +430,21 @@ async function syncOnLogin(uid) {
   updateSyncBadge('synced','☁️ מסונכרן');
 }
 
-// Try to restore sync from saved config
+// Firebase config קבוע — מתחבר אוטומטית בכל מכשיר
+const HARDCODED_FB_CONFIG = {
+  apiKey: "AIzaSyC_ueG-ZuJP95tWuVvNT920Ao5yqC6KAEE",
+  authDomain: "matt-36f5c.firebaseapp.com",
+  databaseURL: "https://matt-36f5c-default-rtdb.firebaseio.com",
+  projectId: "matt-36f5c",
+  storageBucket: "matt-36f5c.firebasestorage.app",
+  messagingSenderId: "869164186430",
+  appId: "1:869164186430:web:644e3ea0a57cac42d34a6f"
+};
+const HARDCODED_FAMILY_CODE = "cohen12";
+
 function tryRestoreSync() {
-  const cfg = getFbConfig();
-  const code = getFamilyCode();
-  if(cfg && code) {
-    initFirebase(cfg, code);
-  }
+  // תמיד מתחבר עם ה-config הקבוע — לא צריך הגדרה ידנית
+  initFirebase(HARDCODED_FB_CONFIG, HARDCODED_FAMILY_CODE);
 }
 
 // ============================================================
