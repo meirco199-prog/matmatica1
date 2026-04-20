@@ -185,10 +185,31 @@ header h1 { font-size:1.3rem; }
 .reset-child-btn { margin-top:13px; padding:6px 12px; background:#fce8e6; color:#ea4335; border:none; border-radius:8px; cursor:pointer; font-size:.79rem; font-weight:600; }
 .reset-child-btn:hover { background:#ea4335; color:white; }
 
+/* MOBILE BOTTOM NAV */
+.mobile-nav { display:none; position:fixed; bottom:0; left:0; right:0; background:white; border-top:2px solid #e0e0e0; z-index:500; padding:6px 0 env(safe-area-inset-bottom,6px); box-shadow:0 -2px 12px #0002; }
+.mobile-nav-inner { display:flex; justify-content:space-around; }
+.mobile-nav-btn { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 10px; border:none; background:none; cursor:pointer; font-size:.62rem; color:#888; min-width:52px; }
+.mobile-nav-btn .mnicon { font-size:1.4rem; }
+.mobile-nav-btn.active { color:#1a73e8; }
+.mobile-topic-drawer { display:none; position:fixed; bottom:60px; left:0; right:0; background:white; border-top:2px solid #e0e0e0; z-index:499; padding:10px; box-shadow:0 -4px 20px #0003; max-height:55vh; overflow-y:auto; }
+.mobile-topic-drawer.open { display:block; }
+.mobile-topic-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.mobile-topic-item { padding:10px 6px; border-radius:10px; border:2px solid #e8eaed; text-align:center; cursor:pointer; font-size:.78rem; font-weight:600; background:white; }
+.mobile-topic-item:active { background:#e8f0fe; border-color:#1a73e8; }
+.mobile-topic-item .mti { font-size:1.4rem; display:block; margin-bottom:3px; }
+.mobile-grade-row { display:flex; gap:6px; overflow-x:auto; padding:8px 0; margin-bottom:8px; }
+.mobile-grade-btn { padding:5px 12px; border:2px solid #1a73e8; border-radius:16px; background:white; color:#1a73e8; font-size:.8rem; font-weight:700; white-space:nowrap; cursor:pointer; flex-shrink:0; }
+.mobile-grade-btn.active { background:#1a73e8; color:white; }
+
 @media(max-width:600px){
-  .sidebar{display:none;}
-  .exercise-grid{grid-template-columns:1fr;}
-  .dashboard-grid{grid-template-columns:1fr;}
+  .sidebar { display:none; }
+  .exercise-grid { grid-template-columns:1fr; }
+  .dashboard-grid { grid-template-columns:1fr; }
+  .mobile-nav { display:block; }
+  .content { padding-bottom:80px; }
+  header h1 { font-size:1.1rem; }
+  .header-right { gap:5px; }
+  .sync-badge { font-size:.68rem; padding:2px 7px; }
 }
 </style>
 </head>
@@ -233,6 +254,34 @@ header h1 { font-size:1.3rem; }
   <div class="main-layout">
     <nav class="sidebar" id="sidebar"></nav>
     <main class="content" id="content"></main>
+  </div>
+</div>
+
+<!-- Mobile bottom nav -->
+<div class="mobile-nav" id="mobile-nav" style="display:none;">
+  <div class="mobile-nav-inner">
+    <button class="mobile-nav-btn" onclick="mobileNav('home')"><span class="mnicon">🏠</span>בית</button>
+    <button class="mobile-nav-btn" onclick="mobileNav('topics')"><span class="mnicon">📝</span>נושאים</button>
+    <button class="mobile-nav-btn" onclick="mobileNav('history')"><span class="mnicon">📂</span>היסטוריה</button>
+    <button class="mobile-nav-btn" onclick="mobileNav('settings')"><span class="mnicon">⚙️</span>הגדרות</button>
+    <button class="mobile-nav-btn" id="mobile-dash-btn" onclick="mobileNav('dash')" style="display:none;"><span class="mnicon">📊</span>מעקב</button>
+  </div>
+</div>
+
+<!-- Mobile topics drawer -->
+<div class="mobile-topic-drawer" id="mobile-topic-drawer">
+  <div class="mobile-grade-row" id="mobile-grade-row"></div>
+  <div class="mobile-topic-grid">
+    <div class="mobile-topic-item" onclick="startTopic('addition');closeMobileDrawer()"><span class="mti">➕</span>חיבור</div>
+    <div class="mobile-topic-item" onclick="startTopic('subtraction');closeMobileDrawer()"><span class="mti">➖</span>חיסור</div>
+    <div class="mobile-topic-item" onclick="startTopic('multiplication');closeMobileDrawer()"><span class="mti">✖️</span>כפל</div>
+    <div class="mobile-topic-item" onclick="startTopic('division');closeMobileDrawer()"><span class="mti">➗</span>חילוק</div>
+    <div class="mobile-topic-item" onclick="startTopic('long-division');closeMobileDrawer()"><span class="mti">📏</span>חילוק ארוך</div>
+    <div class="mobile-topic-item" onclick="startTopic('fractions');closeMobileDrawer()"><span class="mti">½</span>שברים</div>
+    <div class="mobile-topic-item" onclick="startTopic('frac-simplify');closeMobileDrawer()"><span class="mti">🔢</span>צמצום</div>
+    <div class="mobile-topic-item" onclick="startTopic('decimals');closeMobileDrawer()"><span class="mti">📍</span>עשרוניים</div>
+    <div class="mobile-topic-item" onclick="startTopic('mixed');closeMobileDrawer()"><span class="mti">🎲</span>מעורב</div>
+    <div class="mobile-topic-item" onclick="showSection('mult-table');closeMobileDrawer()"><span class="mti">📋</span>לוח כפל</div>
   </div>
 </div>
 
@@ -297,6 +346,7 @@ let currentTopic='mixed', currentGrade=3;
 let exercises=[], answered={}, isReadOnly=false;
 let pendingAvatar=null;
 let fbDb=null, syncActive=false, familyCode='';
+let parentDashActive=false; // flag: האם ההורה רואה את הדאשבורד כרגע
 
 // ============================================================
 // LOCAL STORAGE HELPERS
@@ -345,8 +395,8 @@ function initFirebase(config, code) {
       if(snap.val()) updateSyncBadge('synced','☁️ מסונכרן');
       else updateSyncBadge('error','⚠️ אין חיבור');
     });
-    // Real-time listeners: when any child's data changes in Firebase → update local + refresh parent dashboard
-    ['adar','agam'].forEach(uid => {
+    // Real-time listeners: כל שינוי בענן → עדכן מקומי + רענן דאשבורד הורה
+    ['adar','agam','parent'].forEach(uid => {
       fbDb.ref(`families/${code}/${uid}`).on('value', snap => {
         if(!snap.exists()) return;
         const d = snap.val();
@@ -354,10 +404,10 @@ function initFirebase(config, code) {
         if(d.sessions) LS.set('sessions_'+uid, d.sessions);
         if(d.avatar)   setAvatar(uid, d.avatar);
         if(d.grade)    localStorage.setItem('grade_'+uid, d.grade);
-        // If parent is currently viewing dashboard, auto-refresh it
-        if(currentUser === 'parent') {
-          const title = document.querySelector('.exercise-title');
-          if(title && title.textContent.includes('לוח בקרה')) renderParentDash();
+        if(d.pin)      setPin(uid, d.pin);
+        // אם ההורה מחובר ורואה את הדאשבורד — רענן אוטומטית
+        if(currentUser === 'parent' && parentDashActive) {
+          renderParentDash();
         }
       });
     });
@@ -426,7 +476,14 @@ async function manualSync() {
 async function syncOnLogin(uid) {
   if(!syncActive||!fbDb) return;
   updateSyncBadge('syncing','🔄 טוען נתונים...');
-  await pullUserData(uid);
+  // הורה — מושך נתונים של כולם
+  if(uid === 'parent') {
+    await pullUserData('adar');
+    await pullUserData('agam');
+    await pullUserData('parent');
+  } else {
+    await pullUserData(uid);
+  }
   updateSyncBadge('synced','☁️ מסונכרן');
 }
 
@@ -511,14 +568,16 @@ async function loginAs(uid) {
   if(savedGrade) currentGrade=parseInt(savedGrade); else currentGrade=3;
   await syncOnLogin(uid);
   buildSidebar();
+  showMobileNav(uid==='parent');
   if(uid==='parent') renderParentDash(); else renderWelcome();
 }
 
 function logout(){
-  currentUser=null; selectedUser=null; pinBuffer=''; exercises=[]; answered={}; isReadOnly=false;
+  currentUser=null; selectedUser=null; pinBuffer=''; exercises=[]; answered={}; isReadOnly=false; parentDashActive=false;
   document.getElementById('login-screen').style.display='flex';
   document.getElementById('app-shell').style.display='none';
   document.getElementById('pin-area').style.display='none';
+  hideMobileNav(); closeMobileDrawer();
   document.querySelectorAll('.user-card').forEach(c=>c.classList.remove('selected'));
   updateDots(); renderLoginCards();
 }
@@ -527,13 +586,17 @@ function logout(){
 // PIN MODALS
 // ============================================================
 function openChangePinModal(){ document.getElementById('cpm-pin1').value=''; document.getElementById('cpm-pin2').value=''; document.getElementById('cpm-error').textContent=''; document.getElementById('change-pin-modal').classList.add('open'); }
-function saveChangePinModal(){
+async function saveChangePinModal(){
   const p1=document.getElementById('cpm-pin1').value.trim(), p2=document.getElementById('cpm-pin2').value.trim();
   if(!/^\d{4}$/.test(p1)){document.getElementById('cpm-error').textContent='חייב להיות 4 ספרות';return;}
   if(p1!==p2){document.getElementById('cpm-error').textContent='הקודים לא תואמים';return;}
   setPin(selectedUser,p1);
   document.getElementById('change-pin-modal').classList.remove('open');
   document.getElementById('pin-error').textContent='✅ הקוד שונה! נסה שוב';
+  // דחוף לענן כדי שיתסנכרן למכשירים אחרים
+  if(syncActive && fbDb) {
+    try { await fbDb.ref(`families/${familyCode}/${selectedUser}/pin`).set(p1); } catch(e){}
+  }
 }
 
 // ============================================================
@@ -887,13 +950,14 @@ function renderSettings(){
   document.getElementById('content').innerHTML=html;
 }
 
-function saveSettingsPin(){
+async function saveSettingsPin(){
   const p1=document.getElementById('sp1').value.trim(),p2=document.getElementById('sp2').value.trim();
   const msg=document.getElementById('sp-msg');
   if(!/^\d{4}$/.test(p1)){msg.style.color='#ea4335';msg.textContent='חייב להיות 4 ספרות';return;}
   if(p1!==p2){msg.style.color='#ea4335';msg.textContent='הקודים לא תואמים';return;}
   setPin(currentUser,p1);
-  msg.style.color='#34a853';msg.textContent='✅ הקוד שונה בהצלחה!';
+  await pushUserData(currentUser);
+  msg.style.color='#34a853';msg.textContent='✅ הקוד שונה ומסונכרן!';
 }
 
 async function saveAndInitSync(){
@@ -972,6 +1036,7 @@ function setGrade(g){currentGrade=g;localStorage.setItem('grade_'+currentUser,g)
 // SECTIONS
 // ============================================================
 function showSection(sec){
+  parentDashActive = false; // reset כשיוצאים מהדאשבורד
   if(sec==='welcome')renderWelcome();
   else if(sec==='mult-table')renderMultTable();
   else if(sec==='exercises')renderExercises();
@@ -982,7 +1047,7 @@ function showSection(sec){
 // ============================================================
 // PARENT DASHBOARD
 // ============================================================
-function renderParentDash(){
+function renderParentDash(){ parentDashActive=true;
   function childCard(uid){
     const u=USER_NAMES[uid],p=getProgress(uid);
     const av=getAvatar(uid);
@@ -1010,6 +1075,56 @@ function renderParentDash(){
     <div style="margin-top:12px;font-size:.76rem;color:#ccc;text-align:center;">נתונים מסונכרנים מהענן כאשר הסנכרון מופעל</div>
   `;
 }
+
+// ============================================================
+// MOBILE NAV
+// ============================================================
+function showMobileNav(isParent) {
+  const nav = document.getElementById('mobile-nav');
+  if(nav) nav.style.display = 'block';
+  const dashBtn = document.getElementById('mobile-dash-btn');
+  if(dashBtn) dashBtn.style.display = isParent ? 'flex' : 'none';
+}
+function hideMobileNav() {
+  const nav = document.getElementById('mobile-nav');
+  if(nav) nav.style.display = 'none';
+}
+function mobileNav(sec) {
+  if(sec === 'topics') {
+    const drawer = document.getElementById('mobile-topic-drawer');
+    if(drawer.classList.contains('open')) { closeMobileDrawer(); return; }
+    // build grade row
+    const gr = document.getElementById('mobile-grade-row');
+    gr.innerHTML = [2,3,4,5,6].map(g =>
+      `<button class="mobile-grade-btn ${g===currentGrade?'active':''}" onclick="setGrade(${g});buildMobileGradeRow()">${gradeHeb(g)}</button>`
+    ).join('');
+    drawer.classList.add('open');
+  } else {
+    closeMobileDrawer();
+    if(sec==='home') renderWelcome();
+    else if(sec==='history') showSection('history');
+    else if(sec==='settings') showSection('settings');
+    else if(sec==='dash') renderParentDash();
+  }
+}
+function closeMobileDrawer() {
+  document.getElementById('mobile-topic-drawer').classList.remove('open');
+}
+function buildMobileGradeRow() {
+  const gr = document.getElementById('mobile-grade-row');
+  if(!gr) return;
+  gr.innerHTML = [2,3,4,5,6].map(g =>
+    `<button class="mobile-grade-btn ${g===currentGrade?'active':''}" onclick="setGrade(${g});buildMobileGradeRow()">${gradeHeb(g)}</button>`
+  ).join('');
+}
+// Close drawer when tapping outside
+document.addEventListener('click', e => {
+  const drawer = document.getElementById('mobile-topic-drawer');
+  const nav = document.getElementById('mobile-nav');
+  if(drawer && drawer.classList.contains('open') && !drawer.contains(e.target) && !nav.contains(e.target)) {
+    closeMobileDrawer();
+  }
+});
 
 // ============================================================
 // INIT
