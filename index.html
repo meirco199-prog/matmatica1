@@ -373,18 +373,20 @@ async function doReset(uid){
 }
 
 async function resetProgress(uid){
-  isResetting = true; // עצור listeners זמנית
-  // מחק מקומית
+  isResetting = true;
   LS.rm('progress_'+uid);
   LS.rm('sessions_'+uid);
-  // מחק מהענן (כל הנתונים של המשתמש חוץ מ-pin ו-avatar)
   if(syncActive && fbDb){
     try {
-      await fbDb.ref(`families/${familyCode}/${uid}/progress`).remove();
-      await fbDb.ref(`families/${familyCode}/${uid}/sessions`).remove();
-    } catch(e){ console.error('reset sync error',e); }
+      // set במקום remove — מבטיח שה-listener יתפעל בכל מכשיר
+      await fbDb.ref(`families/${familyCode}/${uid}`).update({
+        progress: null,
+        sessions: null,
+        resetAt: Date.now() // גורם ל-listener לירות גם אם שאר הנתונים זהים
+      });
+    } catch(e){ console.error('reset error', e); }
   }
-  isResetting = false; // החזר listeners לפעולה
+  isResetting = false;
 }
 function saveProgressEntry(uid,topic,grade,total,correct){
   const p=getProgress(uid);
@@ -426,9 +428,9 @@ function initFirebase(config, code) {
           return;
         }
         const d = snap.val();
-        // תמיד מסנכרן — גם אם הערך ריק (כך מחיקות מתפשטות)
-        LS.set('progress_'+uid, d.progress || {});
-        LS.set('sessions_'+uid, d.sessions || []);
+        // תמיד מסנכרן כולל null — כך איפוס מתפשט לכל מכשיר
+        LS.set('progress_'+uid, d.progress ?? {});
+        LS.set('sessions_'+uid, d.sessions ?? []);
         if(d.avatar) setAvatar(uid, d.avatar);
         if(d.grade)  localStorage.setItem('grade_'+uid, d.grade);
         if(d.pin)    setPin(uid, d.pin);
