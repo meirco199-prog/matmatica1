@@ -421,18 +421,17 @@ function initFirebase(config, code) {
       fbDb.ref(`families/${code}/${uid}`).on('value', snap => {
         if(isResetting) return; // בזמן איפוס — התעלם
         if(!snap.exists()) {
-          // נתונים נמחקו בענן — מחק גם מקומית
-          LS.rm('progress_'+uid);
-          LS.rm('sessions_'+uid);
+          LS.rm('progress_'+uid); LS.rm('sessions_'+uid);
           if(currentUser === 'parent' && parentDashActive) renderParentDash();
           return;
         }
         const d = snap.val();
-        if(d.progress) LS.set('progress_'+uid, d.progress);
-        if(d.sessions) LS.set('sessions_'+uid, d.sessions);
-        if(d.avatar)   setAvatar(uid, d.avatar);
-        if(d.grade)    localStorage.setItem('grade_'+uid, d.grade);
-        if(d.pin)      setPin(uid, d.pin);
+        // תמיד מסנכרן — גם אם הערך ריק (כך מחיקות מתפשטות)
+        LS.set('progress_'+uid, d.progress || {});
+        LS.set('sessions_'+uid, d.sessions || []);
+        if(d.avatar) setAvatar(uid, d.avatar);
+        if(d.grade)  localStorage.setItem('grade_'+uid, d.grade);
+        if(d.pin)    setPin(uid, d.pin);
         if(currentUser === 'parent' && parentDashActive) renderParentDash();
       });
     });
