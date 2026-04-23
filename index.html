@@ -346,7 +346,8 @@ let currentTopic='mixed', currentGrade=3;
 let exercises=[], answered={}, isReadOnly=false;
 let pendingAvatar=null;
 let fbDb=null, syncActive=false, familyCode='';
-let parentDashActive=false; // flag: האם ההורה רואה את הדאשבורד כרגע
+let parentDashActive=false;
+let isResetting=false; // flag: מונע מה-listener לשחזר נתונים בזמן איפוס
 
 // ============================================================
 // LOCAL STORAGE HELPERS
@@ -364,7 +365,27 @@ function setAvatar(uid,a){ localStorage.setItem('avatar_'+uid,a); }
 function getProgress(uid){ return LS.get('progress_'+uid,{}); }
 function getSessions(uid){ return LS.get('sessions_'+uid,[]); }
 function saveSessions(uid,arr){ LS.set('sessions_'+uid, arr.slice(-40)); }
-function resetProgress(uid){ LS.rm('progress_'+uid); LS.rm('sessions_'+uid); }
+async function doReset(uid){
+  if(!confirm(`לאפס את כל הנתונים של ${USER_NAMES[uid]}?`)) return;
+  await resetProgress(uid);
+  renderParentDash();
+  alert(`✅ הנתונים של ${USER_NAMES[uid]} אופסו בכל המכשירים`);
+}
+
+async function resetProgress(uid){
+  isResetting = true; // עצור listeners זמנית
+  // מחק מקומית
+  LS.rm('progress_'+uid);
+  LS.rm('sessions_'+uid);
+  // מחק מהענן (כל הנתונים של המשתמש חוץ מ-pin ו-avatar)
+  if(syncActive && fbDb){
+    try {
+      await fbDb.ref(`families/${familyCode}/${uid}/progress`).remove();
+      await fbDb.ref(`families/${familyCode}/${uid}/sessions`).remove();
+    } catch(e){ console.error('reset sync error',e); }
+  }
+  isResetting = false; // החזר listeners לפעולה
+}
 function saveProgressEntry(uid,topic,grade,total,correct){
   const p=getProgress(uid);
   if(!p[topic])p[topic]={};
@@ -398,17 +419,21 @@ function initFirebase(config, code) {
     // Real-time listeners: כל שינוי בענן → עדכן מקומי + רענן דאשבורד הורה
     ['adar','agam','parent'].forEach(uid => {
       fbDb.ref(`families/${code}/${uid}`).on('value', snap => {
-        if(!snap.exists()) return;
+        if(isResetting) return; // בזמן איפוס — התעלם
+        if(!snap.exists()) {
+          // נתונים נמחקו בענן — מחק גם מקומית
+          LS.rm('progress_'+uid);
+          LS.rm('sessions_'+uid);
+          if(currentUser === 'parent' && parentDashActive) renderParentDash();
+          return;
+        }
         const d = snap.val();
         if(d.progress) LS.set('progress_'+uid, d.progress);
         if(d.sessions) LS.set('sessions_'+uid, d.sessions);
         if(d.avatar)   setAvatar(uid, d.avatar);
         if(d.grade)    localStorage.setItem('grade_'+uid, d.grade);
         if(d.pin)      setPin(uid, d.pin);
-        // אם ההורה מחובר ורואה את הדאשבורד — רענן אוטומטית
-        if(currentUser === 'parent' && parentDashActive) {
-          renderParentDash();
-        }
+        if(currentUser === 'parent' && parentDashActive) renderParentDash();
       });
     });
     return true;
@@ -942,8 +967,8 @@ function renderSettings(){
 
   if(currentUser==='parent'){
     html+=`<div class="settings-section"><h3>🗑️ איפוס נתוני ילד</h3><div style="display:flex;gap:9px;flex-wrap:wrap;">
-      <button class="btn btn-danger btn-sm" onclick="if(confirm('לאפס נתונים של אדר?')){resetProgress('adar');alert('אופס!');}">אפס אדר</button>
-      <button class="btn btn-danger btn-sm" onclick="if(confirm('לאפס נתונים של אגם?')){resetProgress('agam');alert('אופס!');}">אפס אגם</button>
+      <button class="btn btn-danger btn-sm" onclick="doReset('adar')">אפס אדר</button>
+      <button class="btn btn-danger btn-sm" onclick="doReset('agam')">אפס אגם</button>
     </div></div>`;
   }
 
@@ -1053,7 +1078,7 @@ function renderParentDash(){ parentDashActive=true;
     const av=getAvatar(uid);
     const avEl=av&&av.startsWith('data:')?`<img src="${av}" style="width:34px;height:34px;border-radius:50%;object-fit:cover;">`:av||DEFAULT_AVATARS[uid];
     const topics=Object.keys(p);
-    if(!topics.length)return`<div class="child-card"><h3>${avEl} ${u}</h3><div style="color:#ccc;text-align:center;padding:18px;font-size:.9rem;">אין נתונים עדיין</div><button class="reset-child-btn" onclick="if(confirm('לאפס?')){resetProgress('${uid}');renderParentDash();}">🗑️ אפס</button></div>`;
+    if(!topics.length)return`<div class="child-card"><h3>${avEl} ${u}</h3><div style="color:#ccc;text-align:center;padding:18px;font-size:.9rem;">אין נתונים עדיין</div><button class="reset-child-btn" onclick="doReset('${uid}')">🗑️ אפס</button></div>`;
     let tot=0,cor=0,sess=0;
     topics.forEach(t=>Object.values(p[t]).forEach(g=>{sess+=g.sessions;tot+=g.total;cor+=g.correct;}));
     const pct=tot?Math.round(cor/tot*100):0;
@@ -1065,7 +1090,7 @@ function renderParentDash(){ parentDashActive=true;
       <div class="child-stat"><span>נכון:</span><b>${cor} (${pct}%)</b></div>
       <div class="progress-wrap" style="margin:10px 0 8px;"><div class="progress-fill" style="width:${pct}%"></div></div>
       ${rows}
-      <button class="reset-child-btn" onclick="if(confirm('לאפס נתוני ${u}?')){resetProgress('${uid}');renderParentDash();}">🗑️ אפס נתונים</button>
+      <button class="reset-child-btn" onclick="doReset('${uid}')">🗑️ אפס נתונים</button>
     </div>`;
   }
   document.getElementById('content').innerHTML=`
