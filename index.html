@@ -950,13 +950,17 @@ function renderHistory(){
     html+=`<div class="session-list">`;
     sessions.forEach(s=>{
       const cls=s.score.pct>=80?'great':s.score.pct<50?'bad':'';
+      const hasExercises = s.exercises && s.exercises.length > 0;
       const badge=s.inProgress
-        ? `<div style="font-size:.62rem;background:#fff3cd;color:#856404;border-radius:6px;padding:2px 6px;margin-top:3px;font-weight:700;">🔄 בתהליך</div>`
+        ? `<div style="font-size:.62rem;background:#fff3cd;color:#856404;border-radius:6px;padding:2px 6px;margin-top:3px;font-weight:700;">🔄 המשך</div>`
         : `<div style="font-size:.62rem;font-weight:400;">${s.score.pct}%</div>`;
-      html+=`<div class="session-item" onclick="loadSession(${s.id})">
+      const noDataWarning = !hasExercises
+        ? `<div style="font-size:.62rem;color:#bbb;margin-top:2px;">⚠️ סט ישן</div>` : '';
+      html+=`<div class="session-item" onclick="loadSession(${s.id})" style="${!hasExercises?'opacity:.55;cursor:not-allowed;':''}">
         <div class="session-info">
           <div class="session-topic">${TOPIC_NAMES[s.topic]||s.topic} — כיתה ${gradeHeb(s.grade)}</div>
           <div class="session-meta">${s.date} · ${s.time||''} · ${s.score.total} תרגילים</div>
+          ${noDataWarning}
         </div>
         <div class="session-score ${cls}">${s.score.correct}/${s.score.total}${badge}</div>
       </div>`;
@@ -967,8 +971,20 @@ function renderHistory(){
 }
 
 function loadSession(id){
-  const s=getSessions(currentUser).find(x=>x.id===id); if(!s)return;
-  exercises=s.exercises; answered=s.answered; currentTopic=s.topic; currentGrade=s.grade; isReadOnly=true;
+  // תמיכה בהשוואת ID גם כמספר וגם כמחרוזת (Firebase יכול להחזיר בפורמטים שונים)
+  const s=getSessions(currentUser).find(x=>x.id==id);
+  if(!s){ alert('הסט לא נמצא.'); return; }
+  if(!s.exercises || !s.exercises.length){
+    alert('⚠️ הסט הישן הזה לא כולל נתוני תרגילים ולא ניתן לפתוח אותו.\nסטים חדשים נשמרים אוטומטית עם כל התרגילים.');
+    return;
+  }
+  exercises = s.exercises;
+  answered  = s.answered || {};
+  currentTopic = s.topic;
+  currentGrade = s.grade;
+  currentSessionId = s.id; // שמור ID כדי שניתן יהיה להמשיך
+  // סשן "בתהליך" → המשך עריכה; סשן שלם → צפייה בלבד
+  isReadOnly = s.inProgress ? false : true;
   showSection('exercises');
 }
 
