@@ -103,6 +103,8 @@ header h1 { font-size:1.3rem; }
 .mark-done-btn { position:absolute; top:8px; left:11px; background:none; border:none; cursor:pointer; font-size:1rem; opacity:.35; transition:opacity .12s; }
 .mark-done-btn:hover,.mark-done-btn.active { opacity:1; }
 .input-hint { font-size:.71rem; color:#bbb; margin-top:3px; text-align:center; direction:rtl; }
+.fix-btn { padding:3px 10px; background:#fff3cd; border:1px solid #fbbc04; border-radius:7px; cursor:pointer; font-size:.78rem; font-weight:700; color:#856404; transition:all .12s; }
+.fix-btn:hover { background:#fbbc04; color:#222; }
 .readonly-badge { position:absolute; top:8px; right:40px; background:#fbbc04; color:#222; font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:7px; }
 
 .mult-table { overflow-x:auto; margin-top:12px; }
@@ -344,6 +346,7 @@ const TOPIC_NAMES = {'addition':'חיבור','subtraction':'חיסור','multipl
 let currentUser=null, selectedUser=null, pinBuffer='';
 let currentTopic='mixed', currentGrade=3;
 let exercises=[], answered={}, isReadOnly=false;
+let currentSessionId=null; // שמירה אוטומטית לפי session ID
 let pendingAvatar=null;
 let fbDb=null, syncActive=false, familyCode='';
 let parentDashActive=false;
@@ -784,8 +787,10 @@ const generators={
 function generateExercises(count){
   isReadOnly=false; count=count||(currentGrade<=3?20:30);
   exercises=[]; answered={};
+  currentSessionId = Date.now(); // ID ייחודי לסט הזה
   for(let i=0;i<count;i++) exercises.push(generators[currentTopic](currentGrade));
   showSection('exercises');
+  autoSaveSession(); // שמירה ראשונית
 }
 
 function renderExercises(){
@@ -813,7 +818,19 @@ function renderExercises(){
     let cc='exercise-card';
     if(ans) cc+=ans.correct?' answered-correct':' answered-wrong';
     let result='',inputClass='';
-    if(ans){result=ans.correct?`<div class="result-icon">✅</div>`:`<div><div class="result-icon">❌</div><div class="correct-answer">תשובה: ${ex.ans}</div></div>`;inputClass=ans.correct?'correct':'wrong';}
+    if(ans){
+      if(ans.correct){
+        result=`<div class="result-icon">✅</div>`;
+        inputClass='correct';
+      } else {
+        result=`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+          <div class="result-icon">❌</div>
+          <div class="correct-answer">תשובה: ${ex.ans}</div>
+          ${!isReadOnly?`<button class="fix-btn" onclick="fixAnswer(${i})">✏️ תקן</button>`:''}
+        </div>`;
+        inputClass='wrong';
+      }
+    }
     const hint=ex.type==='fraction'?'<div class="input-hint">פורמט: 3/4</div>':ex.type==='long-div'?'<div class="input-hint">לדוגמה: 12 שארית 3</div>':'';
     html+=`<div class="${cc}" id="card-${i}">
       <span class="exercise-num">#${i+1}</span>
@@ -848,6 +865,7 @@ function checkOne(i){
   const correct=evalAnswer(exercises[i],val);
   if(correct===null)return;
   answered[i]={correct,userAnswer:val.trim(),marked:answered[i]?.marked||false};
+  autoSaveSession(); // שמירה אוטומטית
   renderExercises();
   setTimeout(()=>{const el=document.getElementById('card-'+i);if(el)el.scrollIntoView({behavior:'smooth',block:'center'});},40);
 }
@@ -857,7 +875,44 @@ function checkAll(){
   const vals={};
   exercises.forEach((_,i)=>{ if(!answered[i]){const inp=document.getElementById('input-'+i);if(inp&&inp.value.trim())vals[i]=inp.value.trim();} });
   Object.entries(vals).forEach(([i,val])=>{ const c=evalAnswer(exercises[+i],val); if(c!==null)answered[+i]={correct:c,userAnswer:val,marked:answered[+i]?.marked||false}; });
+  autoSaveSession(); // שמירה אוטומטית
   renderExercises();
+}
+
+function fixAnswer(i){
+  // מחק תשובה שגויה ואפשר לתקן
+  const marked = answered[i]?.marked || false;
+  delete answered[i];
+  renderExercises();
+  // פוקוס על השדה
+  setTimeout(()=>{
+    const inp = document.getElementById('input-'+i);
+    if(inp){ inp.value=''; inp.focus(); }
+  }, 50);
+}
+
+function autoSaveSession(){
+  if(!currentUser || isReadOnly || !currentSessionId) return;
+  const correct = Object.values(answered).filter(a=>a.correct).length;
+  const total = exercises.length;
+  const pct = total ? Math.round(correct/total*100) : 0;
+  const session = {
+    id: currentSessionId,
+    uid: currentUser,
+    topic: currentTopic,
+    grade: currentGrade,
+    date: new Date().toLocaleDateString('he-IL'),
+    time: new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),
+    exercises: exercises.map(e=>({...e})),
+    answered: {...answered},
+    score: {correct, total, pct},
+    inProgress: Object.keys(answered).length < total // עדיין בתהליך
+  };
+  // עדכן סשן קיים או הוסף חדש
+  const sessions = getSessions(currentUser).filter(s => s.id !== currentSessionId);
+  sessions.push(session);
+  saveSessions(currentUser, sessions);
+  if(syncActive && fbDb) pushUserData(currentUser).catch(()=>{});
 }
 
 function toggleMark(i){
@@ -875,10 +930,11 @@ async function showResults(){
   const emoji=pct>=90?'🏆 מצוין!':pct>=70?'👍 כל הכבוד!':pct>=50?'📚 טוב, המשך!':'💪 תנסה שוב!';
   document.getElementById('modal-detail').innerHTML=`<b>${pct}%</b> — ${emoji}<br>נכון: ${correct} · שגוי: ${arr.filter(a=>!a.correct).length} · לא ענית: ${total-arr.length}`;
   document.getElementById('results-modal').classList.add('open');
-  // Save session
-  const session={id:Date.now(),uid:currentUser,topic:currentTopic,grade:currentGrade,date:new Date().toLocaleDateString('he-IL'),time:new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),exercises:exercises.map(e=>({...e})),answered:{...answered},score:{correct,total,pct}};
-  const sessions=getSessions(currentUser); sessions.push(session); saveSessions(currentUser,sessions);
+  // Save session (mark as complete)
   saveProgressEntry(currentUser,currentTopic,currentGrade,total,correct);
+  const session={id:currentSessionId||Date.now(),uid:currentUser,topic:currentTopic,grade:currentGrade,date:new Date().toLocaleDateString('he-IL'),time:new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),exercises:exercises.map(e=>({...e})),answered:{...answered},score:{correct,total,pct},inProgress:false};
+  const sessions=getSessions(currentUser).filter(s=>s.id!==session.id);
+  sessions.push(session); saveSessions(currentUser,sessions);
   await pushUserData(currentUser);
 }
 function closeModal(){ document.getElementById('results-modal').classList.remove('open'); }
@@ -889,14 +945,20 @@ function closeModal(){ document.getElementById('results-modal').classList.remove
 function renderHistory(){
   const sessions=getSessions(currentUser).slice().reverse();
   let html=`<div class="exercise-header"><div class="exercise-title">📂 הסטים שעשיתי</div></div>`;
-  if(!sessions.length){html+=`<div class="no-history">עדיין אין סטים שמורים.<br>סיים סט ולחץ "תוצאות" כדי לשמור.</div>`;}
+  if(!sessions.length){html+=`<div class="no-history">עדיין אין סטים שמורים.</div>`;}
   else{
     html+=`<div class="session-list">`;
     sessions.forEach(s=>{
       const cls=s.score.pct>=80?'great':s.score.pct<50?'bad':'';
+      const badge=s.inProgress
+        ? `<div style="font-size:.62rem;background:#fff3cd;color:#856404;border-radius:6px;padding:2px 6px;margin-top:3px;font-weight:700;">🔄 בתהליך</div>`
+        : `<div style="font-size:.62rem;font-weight:400;">${s.score.pct}%</div>`;
       html+=`<div class="session-item" onclick="loadSession(${s.id})">
-        <div class="session-info"><div class="session-topic">${TOPIC_NAMES[s.topic]||s.topic} — כיתה ${gradeHeb(s.grade)}</div><div class="session-meta">${s.date} · ${s.time||''} · ${s.score.total} תרגילים</div></div>
-        <div class="session-score ${cls}">${s.score.correct}/${s.score.total}<div style="font-size:.62rem;font-weight:400;">${s.score.pct}%</div></div>
+        <div class="session-info">
+          <div class="session-topic">${TOPIC_NAMES[s.topic]||s.topic} — כיתה ${gradeHeb(s.grade)}</div>
+          <div class="session-meta">${s.date} · ${s.time||''} · ${s.score.total} תרגילים</div>
+        </div>
+        <div class="session-score ${cls}">${s.score.correct}/${s.score.total}${badge}</div>
       </div>`;
     });
     html+=`</div>`;
