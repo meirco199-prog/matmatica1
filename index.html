@@ -174,7 +174,7 @@ header h1 { font-size:1.3rem; }
 .info-box.warning { background:#fff8e1; color:#b45309; }
 
 /* Dashboard */
-.dashboard-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px; }
+.dashboard-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px; margin-top:14px; }
 .child-card { background:white; border-radius:15px; padding:20px; box-shadow:0 2px 10px #0001; border:2px solid #e8eaed; }
 .child-card h3 { font-size:1.15rem; margin-bottom:13px; display:flex; align-items:center; gap:8px; }
 .child-stat { display:flex; justify-content:space-between; margin-bottom:8px; font-size:.88rem; }
@@ -333,10 +333,10 @@ header h1 { font-size:1.3rem; }
 // ============================================================
 // CONSTANTS
 // ============================================================
-const DEFAULT_PINS    = { adar:'1234', agam:'5678', parent:'0000' };
-const DEFAULT_AVATARS = { adar:'🧒', agam:'👧', parent:'👨‍👩‍👧‍👦' };
-const USER_NAMES      = { adar:'אדר', agam:'אגם', parent:'הורה' };
-const USER_ROLES      = { adar:'תלמיד', agam:'תלמידה', parent:'ניהול ומעקב' };
+const DEFAULT_PINS    = { adar:'1234', agam:'5678', ariel:'9999', parent:'0000' };
+const DEFAULT_AVATARS = { adar:'🧒', agam:'👧', ariel:'👦', parent:'👨‍👩‍👧‍👦' };
+const USER_NAMES      = { adar:'אדר', agam:'אגם', ariel:'אריאל', parent:'הורה' };
+const USER_ROLES      = { adar:'תלמיד', agam:'תלמידה', ariel:'תלמיד', parent:'ניהול ומעקב' };
 const EMOJIS = ['🧒','👦','👧','🧑','👩','👨','🧔','👱','🐱','🐶','🦁','🐯','🦊','🐸','🐧','🦋','⭐','🌟','🚀','🎮','🎨','🎵','🏆','🌈','🦄','🐉','🎃','🍕','🌺','🎯'];
 const TOPIC_NAMES = {'addition':'חיבור','subtraction':'חיסור','multiplication':'כפל','division':'חילוק','long-division':'חילוק ארוך','fractions':'שברים','frac-simplify':'צמצום שברים','decimals':'עשרוניים','mixed':'מעורב'};
 
@@ -422,7 +422,7 @@ function initFirebase(config, code) {
       else updateSyncBadge('error','⚠️ אין חיבור');
     });
     // Real-time listeners: כל שינוי בענן → עדכן מקומי + רענן דאשבורד הורה
-    ['adar','agam','parent'].forEach(uid => {
+    ['adar','agam','ariel','parent'].forEach(uid => {
       fbDb.ref(`families/${code}/${uid}`).on('value', snap => {
         if(isResetting) return; // בזמן איפוס — התעלם
         if(!snap.exists()) {
@@ -494,7 +494,7 @@ async function pullUserData(uid) {
 async function manualSync() {
   if(!syncActive){ showSection('settings'); return; }
   updateSyncBadge('syncing','🔄 מסנכרן...');
-  for(const uid of ['adar','agam','parent']){
+  for(const uid of ['adar','agam','ariel','parent']){
     await pushUserData(uid);
     await pullUserData(uid);
   }
@@ -509,6 +509,7 @@ async function syncOnLogin(uid) {
   if(uid === 'parent') {
     await pullUserData('adar');
     await pullUserData('agam');
+    await pullUserData('ariel');
     await pullUserData('parent');
   } else {
     await pullUserData(uid);
@@ -551,7 +552,7 @@ function headerAvatarHtml(uid) {
 // LOGIN
 // ============================================================
 function renderLoginCards() {
-  document.getElementById('user-cards').innerHTML = ['adar','agam','parent'].map(uid=>`
+  document.getElementById('user-cards').innerHTML = ['adar','agam','ariel','parent'].map(uid=>`
     <div class="user-card" onclick="selectUser('${uid}')" id="card-${uid}">
       ${avatarHtml(uid)}
       <div class="uname">${USER_NAMES[uid]}</div>
@@ -1174,7 +1175,7 @@ function renderParentDash(){ parentDashActive=true;
   }
   document.getElementById('content').innerHTML=`
     <div style="font-size:1.1rem;font-weight:700;color:#1a73e8;margin-bottom:14px;">📊 לוח בקרה הורה</div>
-    <div class="dashboard-grid">${['adar','agam'].map(childCard).join('')}</div>
+    <div class="dashboard-grid">${['adar','agam','ariel'].map(childCard).join('')}</div>
     <div style="margin-top:14px;text-align:center;"><button class="btn btn-outline" onclick="manualSync()">🔄 רענן נתונים</button></div>
     <div style="margin-top:12px;font-size:.76rem;color:#ccc;text-align:center;">נתונים מסונכרנים מהענן כאשר הסנכרון מופעל</div>
   `;
