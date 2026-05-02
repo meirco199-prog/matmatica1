@@ -354,7 +354,6 @@ header h1 { font-size:1.3rem; }
       <button class="header-btn" onclick="closeDraft()">✕ סגור</button>
     </div>
   </div>
-  <div class="draft-question" id="draft-question"></div>
   <div class="draft-canvas-wrap" id="draft-canvas-wrap">
     <canvas id="draft-canvas"></canvas>
   </div>
@@ -1285,53 +1284,7 @@ document.addEventListener('click', e => {
 // DRAFT CANVAS
 // ============================================================
 let draftCtx=null, draftColor='#1a1a1a', draftSize=3, draftDrawing=false, draftLastX=0, draftLastY=0;
-
-function formatDraftQuestion(ex) {
-  // פורמט מאונך לחיבור, חיסור, כפל
-  if (ex.type === 'int' || ex.type === 'decimal') {
-    const m = ex.q.match(/^([\d.,]+)\s*([+\-×])\s*([\d.,]+)\s*=\s*\?$/);
-    if (m) {
-      const [, a, op, b] = m;
-      const maxLen = Math.max(a.length, b.length);
-      const aP = a.padStart(maxLen);
-      const bP = b.padStart(maxLen);
-      return `<table style="font-family:'Courier New',monospace;font-size:2.6rem;font-weight:800;border-collapse:collapse;margin:auto;direction:ltr;">
-        <tr>
-          <td style="padding-left:.4em;"></td>
-          <td style="text-align:right;letter-spacing:.08em;">${aP}</td>
-        </tr>
-        <tr style="border-top:4px solid #222;">
-          <td style="padding-left:.4em;vertical-align:top;">${op}</td>
-          <td style="text-align:right;letter-spacing:.08em;">${bP}</td>
-        </tr>
-      </table>`;
-    }
-  }
-  // לכל שאר הסוגים — מציג כרגיל
-  return `<span style="font-size:1.4rem;">${ex.q}</span>`;
-}
-
-function openDraft(i){
-  const ex = exercises[i];
-  const overlay = document.getElementById('draft-overlay');
-  document.getElementById('draft-question').innerHTML = formatDraftQuestion(ex);
-  overlay.classList.add('open');
-  // Resize and init canvas after layout is rendered
-  requestAnimationFrame(()=>{
-    const wrap = document.getElementById('draft-canvas-wrap');
-    const canvas = document.getElementById('draft-canvas');
-    canvas.width = wrap.clientWidth;
-    canvas.height = wrap.clientHeight;
-    draftCtx = canvas.getContext('2d');
-    drawDraftGrid();
-    draftCtx.lineJoin='round';
-    draftCtx.lineCap='round';
-  });
-}
-
-function closeDraft(){
-  document.getElementById('draft-overlay').classList.remove('open');
-}
+let currentDraftEx=null;
 
 const GRID_SIZE = 40;
 
@@ -1342,22 +1295,94 @@ function drawDraftGrid(){
   draftCtx.strokeStyle = '#c8d8f0';
   draftCtx.lineWidth = 1;
   for(let x=0; x<=canvas.width; x+=GRID_SIZE){
-    draftCtx.beginPath();
-    draftCtx.moveTo(x,0);
-    draftCtx.lineTo(x,canvas.height);
-    draftCtx.stroke();
+    draftCtx.beginPath(); draftCtx.moveTo(x,0); draftCtx.lineTo(x,canvas.height); draftCtx.stroke();
   }
   for(let y=0; y<=canvas.height; y+=GRID_SIZE){
-    draftCtx.beginPath();
-    draftCtx.moveTo(0,y);
-    draftCtx.lineTo(canvas.width,y);
-    draftCtx.stroke();
+    draftCtx.beginPath(); draftCtx.moveTo(0,y); draftCtx.lineTo(canvas.width,y); draftCtx.stroke();
   }
+}
+
+function drawDraftQuestion(ex){
+  if(!draftCtx||!ex) return;
+  const canvas = document.getElementById('draft-canvas');
+  const cx = canvas.width/2, cy = canvas.height/2;
+  draftCtx.save();
+  draftCtx.fillStyle = '#1a3a6e';
+
+  // חיבור / חיסור / כפל — פורמט עמודה
+  if(ex.type==='int'||ex.type==='decimal'){
+    const m = ex.q.match(/^([\d.,]+)\s*([+\-×])\s*([\d.,]+)\s*=\s*\?$/);
+    if(m){
+      const [,a,op,b] = m;
+      const fs = Math.min(70, Math.max(40, canvas.width/10));
+      draftCtx.font = `bold ${fs}px 'Courier New',monospace`;
+      draftCtx.textBaseline = 'alphabetic';
+      const dw = draftCtx.measureText('0').width;          // רוחב ספרה
+      const opW = draftCtx.measureText(op+' ').width;
+      const maxLen = Math.max(a.length, b.length);
+      const numW = maxLen * dw;
+      const lineW = opW + numW + dw*0.3;
+      const rowH = fs * 1.5;
+
+      // שורה 1: המספר הראשון, ימין-מיושר
+      const rightEdge = cx + numW/2;
+      draftCtx.textAlign = 'right';
+      draftCtx.fillText(a, rightEdge, cy - rowH/2);
+
+      // קו — בין שני המספרים
+      const lineY = cy - 8;
+      draftCtx.strokeStyle = '#1a3a6e';
+      draftCtx.lineWidth = 3;
+      draftCtx.beginPath();
+      draftCtx.moveTo(cx - lineW/2, lineY);
+      draftCtx.lineTo(rightEdge, lineY);
+      draftCtx.stroke();
+
+      // שורה 2: פעולה + מספר שני
+      draftCtx.textAlign = 'left';
+      draftCtx.fillText(op, cx - lineW/2, cy + rowH/2);
+      draftCtx.textAlign = 'right';
+      draftCtx.fillText(b, rightEdge, cy + rowH/2);
+
+      draftCtx.restore();
+      return;
+    }
+  }
+
+  // כל שאר הסוגים — טקסט רגיל באמצע
+  const text = ex.q.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+  const fs = Math.min(52, canvas.width/8);
+  draftCtx.font = `bold ${fs}px Arial,sans-serif`;
+  draftCtx.textAlign = 'center';
+  draftCtx.textBaseline = 'middle';
+  draftCtx.fillText(text, cx, cy);
+  draftCtx.restore();
+}
+
+function openDraft(i){
+  currentDraftEx = exercises[i];
+  document.getElementById('draft-overlay').classList.add('open');
+  requestAnimationFrame(()=>{
+    const wrap = document.getElementById('draft-canvas-wrap');
+    const canvas = document.getElementById('draft-canvas');
+    canvas.width  = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+    draftCtx = canvas.getContext('2d');
+    drawDraftGrid();
+    drawDraftQuestion(currentDraftEx);
+    draftCtx.lineJoin='round';
+    draftCtx.lineCap='round';
+  });
+}
+
+function closeDraft(){
+  document.getElementById('draft-overlay').classList.remove('open');
 }
 
 function clearDraftCanvas(){
   if(!draftCtx) return;
   drawDraftGrid();
+  drawDraftQuestion(currentDraftEx);
 }
 
 function setDraftColor(el, color){
