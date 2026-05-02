@@ -213,6 +213,22 @@ header h1 { font-size:1.3rem; }
   .header-right { gap:5px; }
   .sync-badge { font-size:.68rem; padding:2px 7px; }
 }
+
+/* DRAFT OVERLAY */
+#draft-overlay { display:none; position:fixed; inset:0; background:#fff; z-index:2000; flex-direction:column; }
+#draft-overlay.open { display:flex; }
+.draft-header { background:linear-gradient(135deg,#1a73e8,#0d47a1); color:white; padding:11px 16px; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; gap:8px; }
+.draft-header-title { font-size:1rem; font-weight:700; }
+.draft-header-btns { display:flex; gap:8px; }
+.draft-question { background:#f0f4f8; padding:13px 18px; font-size:1.25rem; font-weight:700; text-align:center; direction:ltr; border-bottom:2px solid #e0e0e0; flex-shrink:0; min-height:52px; display:flex; align-items:center; justify-content:center; }
+.draft-canvas-wrap { flex:1; position:relative; overflow:hidden; touch-action:none; background:white; }
+#draft-canvas { position:absolute; top:0; left:0; width:100%; height:100%; display:block; cursor:crosshair; touch-action:none; }
+.draft-toolbar { background:#f8f9fa; border-top:2px solid #e0e0e0; padding:9px 14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex-shrink:0; }
+.draft-color-btn { width:28px; height:28px; border-radius:50%; border:3px solid transparent; cursor:pointer; transition:all .12s; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.8rem; }
+.draft-color-btn.active { border-color:#333; transform:scale(1.25); box-shadow:0 0 0 2px #fff inset; }
+.draft-size-btn { padding:4px 10px; border:2px solid #e0e0e0; border-radius:7px; cursor:pointer; background:white; font-size:.8rem; font-weight:700; color:#444; transition:all .12s; }
+.draft-size-btn.active { background:#1a73e8; color:white; border-color:#1a73e8; }
+.draft-sep { width:1px; height:22px; background:#ddd; flex-shrink:0; }
 </style>
 </head>
 <body>
@@ -326,6 +342,35 @@ header h1 { font-size:1.3rem; }
       <button class="btn btn-primary" onclick="saveAvatar()">שמור</button>
       <button class="btn btn-outline" onclick="document.getElementById('avatar-modal').classList.remove('open')">ביטול</button>
     </div>
+  </div>
+</div>
+
+<!-- Draft Overlay -->
+<div id="draft-overlay">
+  <div class="draft-header">
+    <span class="draft-header-title">✏️ טיוטה</span>
+    <div class="draft-header-btns">
+      <button class="header-btn" onclick="clearDraftCanvas()">🗑️ נקה</button>
+      <button class="header-btn" onclick="closeDraft()">✕ סגור</button>
+    </div>
+  </div>
+  <div class="draft-question" id="draft-question"></div>
+  <div class="draft-canvas-wrap" id="draft-canvas-wrap">
+    <canvas id="draft-canvas"></canvas>
+  </div>
+  <div class="draft-toolbar">
+    <span style="font-size:.8rem;font-weight:700;color:#666;">צבע:</span>
+    <div class="draft-color-btn active" style="background:#1a1a1a" onclick="setDraftColor(this,'#1a1a1a')" title="שחור"></div>
+    <div class="draft-color-btn" style="background:#1a73e8" onclick="setDraftColor(this,'#1a73e8')" title="כחול"></div>
+    <div class="draft-color-btn" style="background:#ea4335" onclick="setDraftColor(this,'#ea4335')" title="אדום"></div>
+    <div class="draft-color-btn" style="background:#34a853" onclick="setDraftColor(this,'#34a853')" title="ירוק"></div>
+    <div class="draft-color-btn" style="background:#fbbc04" onclick="setDraftColor(this,'#fbbc04')" title="צהוב"></div>
+    <div class="draft-color-btn" style="background:#f0f4f8;font-size:1rem" onclick="setDraftColor(this,'eraser')" title="מחק">🧹</div>
+    <div class="draft-sep"></div>
+    <span style="font-size:.8rem;font-weight:700;color:#666;">עובי:</span>
+    <button class="draft-size-btn active" onclick="setDraftSize(this,3)">S</button>
+    <button class="draft-size-btn" onclick="setDraftSize(this,6)">M</button>
+    <button class="draft-size-btn" onclick="setDraftSize(this,14)">L</button>
   </div>
 </div>
 
@@ -841,7 +886,9 @@ function renderExercises(){
         <input type="text" class="answer-input ${inputClass}" id="input-${i}" value="${ans?.userAnswer||''}" placeholder="תשובה..." ${(ans||isReadOnly)?'disabled':''} onkeydown="if(event.key==='Enter')checkOne(${i})">
         ${(!ans&&!isReadOnly)?`<button class="check-btn" onclick="checkOne(${i})">בדוק</button>`:''}
         ${result}
-      </div>${hint}</div>`;
+      </div>${hint}
+      <div style="text-align:center;margin-top:8px;"><button style="background:#f0f4f8;border:2px dashed #bbb;border-radius:9px;padding:5px 14px;cursor:pointer;font-size:.78rem;color:#666;font-weight:600;transition:all .12s;" onmouseover="this.style.borderColor='#1a73e8';this.style.color='#1a73e8'" onmouseout="this.style.borderColor='#bbb';this.style.color='#666'" onclick="openDraft(${i})">✏️ טיוטה</button></div>
+      </div>`;
   });
   html+='</div>';
   document.getElementById('content').innerHTML=html;
@@ -1230,6 +1277,125 @@ document.addEventListener('click', e => {
     closeMobileDrawer();
   }
 });
+
+// ============================================================
+// DRAFT CANVAS
+// ============================================================
+let draftCtx=null, draftColor='#1a1a1a', draftSize=3, draftDrawing=false, draftLastX=0, draftLastY=0;
+
+function openDraft(i){
+  const ex = exercises[i];
+  const overlay = document.getElementById('draft-overlay');
+  document.getElementById('draft-question').innerHTML = ex.q;
+  overlay.classList.add('open');
+  // Resize and init canvas after layout is rendered
+  requestAnimationFrame(()=>{
+    const wrap = document.getElementById('draft-canvas-wrap');
+    const canvas = document.getElementById('draft-canvas');
+    canvas.width = wrap.clientWidth;
+    canvas.height = wrap.clientHeight;
+    draftCtx = canvas.getContext('2d');
+    draftCtx.fillStyle = 'white';
+    draftCtx.fillRect(0,0,canvas.width,canvas.height);
+    draftCtx.lineJoin='round';
+    draftCtx.lineCap='round';
+  });
+}
+
+function closeDraft(){
+  document.getElementById('draft-overlay').classList.remove('open');
+}
+
+function clearDraftCanvas(){
+  if(!draftCtx) return;
+  const canvas = document.getElementById('draft-canvas');
+  draftCtx.fillStyle='white';
+  draftCtx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+function setDraftColor(el, color){
+  draftColor = color;
+  document.querySelectorAll('.draft-color-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function setDraftSize(el, size){
+  draftSize = size;
+  document.querySelectorAll('.draft-size-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function getDraftPos(canvas, e){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const src = e.touches ? e.touches[0] : e;
+  return { x:(src.clientX - rect.left)*scaleX, y:(src.clientY - rect.top)*scaleY };
+}
+
+(function initDraftCanvas(){
+  // Runs after DOM is ready
+  document.addEventListener('DOMContentLoaded', ()=>{}, false);
+  const setup = ()=>{
+    const canvas = document.getElementById('draft-canvas');
+    if(!canvas) return;
+
+    function startDraw(e){
+      if(!draftCtx) return;
+      e.preventDefault();
+      draftDrawing = true;
+      const pos = getDraftPos(canvas, e);
+      draftLastX = pos.x; draftLastY = pos.y;
+      draftCtx.beginPath();
+      if(draftColor==='eraser'){
+        draftCtx.globalCompositeOperation='destination-out';
+        draftCtx.arc(pos.x,pos.y,draftSize*2,0,Math.PI*2);
+      } else {
+        draftCtx.globalCompositeOperation='source-over';
+        draftCtx.fillStyle=draftColor;
+        draftCtx.arc(pos.x,pos.y,draftSize/2,0,Math.PI*2);
+      }
+      draftCtx.fill();
+    }
+
+    function draw(e){
+      if(!draftDrawing||!draftCtx) return;
+      e.preventDefault();
+      const pos = getDraftPos(canvas, e);
+      draftCtx.beginPath();
+      if(draftColor==='eraser'){
+        draftCtx.globalCompositeOperation='destination-out';
+        draftCtx.lineWidth = draftSize * 4;
+        draftCtx.strokeStyle = 'rgba(0,0,0,1)';
+      } else {
+        draftCtx.globalCompositeOperation='source-over';
+        draftCtx.strokeStyle = draftColor;
+        draftCtx.lineWidth = draftSize;
+      }
+      draftCtx.moveTo(draftLastX, draftLastY);
+      draftCtx.lineTo(pos.x, pos.y);
+      draftCtx.stroke();
+      draftLastX = pos.x; draftLastY = pos.y;
+    }
+
+    function endDraw(){
+      draftDrawing = false;
+      if(draftCtx) draftCtx.globalCompositeOperation='source-over';
+    }
+
+    canvas.addEventListener('mousedown', startDraw);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', endDraw);
+    canvas.addEventListener('mouseleave', endDraw);
+    canvas.addEventListener('touchstart', startDraw, {passive:false});
+    canvas.addEventListener('touchmove', draw, {passive:false});
+    canvas.addEventListener('touchend', endDraw);
+    canvas.addEventListener('touchcancel', endDraw);
+  };
+  // Call setup after page is ready
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', setup);
+  else setup();
+})();
 
 // ============================================================
 // INIT
