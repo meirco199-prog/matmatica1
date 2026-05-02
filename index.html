@@ -390,7 +390,7 @@ const TOPIC_NAMES = {'addition':'חיבור','subtraction':'חיסור','multipl
 // ============================================================
 let currentUser=null, selectedUser=null, pinBuffer='';
 let currentTopic='mixed', currentGrade=3;
-let exercises=[], answered={}, isReadOnly=false;
+let exercises=[], answered={}, isReadOnly=false, showCorrectAnswers=false;
 let currentSessionId=null; // שמירה אוטומטית לפי session ID
 let pendingAvatar=null;
 let fbDb=null, syncActive=false, familyCode='';
@@ -831,12 +831,12 @@ const generators={
 // EXERCISES
 // ============================================================
 function generateExercises(count){
-  isReadOnly=false; count=count||(currentGrade<=3?20:30);
+  isReadOnly=false; showCorrectAnswers=false; count=count||(currentGrade<=3?20:30);
   exercises=[]; answered={};
-  currentSessionId = Date.now(); // ID ייחודי לסט הזה
+  currentSessionId = Date.now();
   for(let i=0;i<count;i++) exercises.push(generators[currentTopic](currentGrade));
   showSection('exercises');
-  autoSaveSession(); // שמירה ראשונית
+  autoSaveSession();
 }
 
 function renderExercises(){
@@ -871,8 +871,8 @@ function renderExercises(){
       } else {
         result=`<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
           <div class="result-icon">❌</div>
-          <div class="correct-answer">תשובה: ${ex.ans}</div>
-          ${!isReadOnly?`<button class="fix-btn" onclick="fixAnswer(${i})">✏️ תקן</button>`:''}
+          ${(showCorrectAnswers||isReadOnly)?`<div class="correct-answer">תשובה: ${ex.ans}</div>`:''}
+          ${(!isReadOnly&&!showCorrectAnswers)?`<button class="fix-btn" onclick="fixAnswer(${i})">✏️ תקן</button>`:''}
         </div>`;
         inputClass='wrong';
       }
@@ -977,6 +977,8 @@ async function showResults(){
   const pct=total?Math.round(correct/total*100):0;
   const emoji=pct>=90?'🏆 מצוין!':pct>=70?'👍 כל הכבוד!':pct>=50?'📚 טוב, המשך!':'💪 תנסה שוב!';
   document.getElementById('modal-detail').innerHTML=`<b>${pct}%</b> — ${emoji}<br>נכון: ${correct} · שגוי: ${arr.filter(a=>!a.correct).length} · לא ענית: ${total-arr.length}`;
+  showCorrectAnswers = true;
+  renderExercises();
   document.getElementById('results-modal').classList.add('open');
   // Save session (mark as complete)
   saveProgressEntry(currentUser,currentTopic,currentGrade,total,correct);
@@ -1033,6 +1035,7 @@ function loadSession(id){
   currentSessionId = s.id; // שמור ID כדי שניתן יהיה להמשיך
   // סשן "בתהליך" → המשך עריכה; סשן שלם → צפייה בלבד
   isReadOnly = s.inProgress ? false : true;
+  showCorrectAnswers = isReadOnly;
   showSection('exercises');
 }
 
