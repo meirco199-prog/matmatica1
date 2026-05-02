@@ -1323,8 +1323,7 @@ function openDraft(i){
     canvas.width = wrap.clientWidth;
     canvas.height = wrap.clientHeight;
     draftCtx = canvas.getContext('2d');
-    draftCtx.fillStyle = 'white';
-    draftCtx.fillRect(0,0,canvas.width,canvas.height);
+    drawDraftGrid();
     draftCtx.lineJoin='round';
     draftCtx.lineCap='round';
   });
@@ -1334,11 +1333,31 @@ function closeDraft(){
   document.getElementById('draft-overlay').classList.remove('open');
 }
 
+const GRID_SIZE = 40;
+
+function drawDraftGrid(){
+  const canvas = document.getElementById('draft-canvas');
+  draftCtx.fillStyle = '#fff';
+  draftCtx.fillRect(0,0,canvas.width,canvas.height);
+  draftCtx.strokeStyle = '#c8d8f0';
+  draftCtx.lineWidth = 1;
+  for(let x=0; x<=canvas.width; x+=GRID_SIZE){
+    draftCtx.beginPath();
+    draftCtx.moveTo(x,0);
+    draftCtx.lineTo(x,canvas.height);
+    draftCtx.stroke();
+  }
+  for(let y=0; y<=canvas.height; y+=GRID_SIZE){
+    draftCtx.beginPath();
+    draftCtx.moveTo(0,y);
+    draftCtx.lineTo(canvas.width,y);
+    draftCtx.stroke();
+  }
+}
+
 function clearDraftCanvas(){
   if(!draftCtx) return;
-  const canvas = document.getElementById('draft-canvas');
-  draftCtx.fillStyle='white';
-  draftCtx.fillRect(0,0,canvas.width,canvas.height);
+  drawDraftGrid();
 }
 
 function setDraftColor(el, color){
