@@ -1313,36 +1313,39 @@ function drawDraftQuestion(ex){
   if(ex.type==='int'||ex.type==='decimal'){
     const m = ex.q.match(/^([\d.,]+)\s*([+\-×])\s*([\d.,]+)\s*=\s*\?$/);
     if(m){
-      const [,a,op,b] = m;
+      let [,a,op,b] = m;
+      // המספר עם יותר ספרות תמיד למעלה
+      if(String(b).replace('.','').length > String(a).replace('.','').length) [a,b]=[b,a];
       const fs = Math.min(70, Math.max(40, canvas.width/10));
       draftCtx.font = `bold ${fs}px 'Courier New',monospace`;
       draftCtx.textBaseline = 'alphabetic';
-      const dw = draftCtx.measureText('0').width;          // רוחב ספרה
+      const dw = draftCtx.measureText('0').width;
       const opW = draftCtx.measureText(op+' ').width;
-      const maxLen = Math.max(a.length, b.length);
+      const maxLen = Math.max(String(a).length, String(b).length);
       const numW = maxLen * dw;
       const lineW = opW + numW + dw*0.3;
-      const rowH = fs * 1.5;
-
-      // שורה 1: המספר הראשון, ימין-מיושר
+      const rowH = fs * 1.6;
       const rightEdge = cx + numW/2;
+      const leftEdge  = cx - lineW/2;
+
+      // שורה 1: מספר גדול (ימין-מיושר, ללא פעולה)
       draftCtx.textAlign = 'right';
       draftCtx.fillText(a, rightEdge, cy - rowH/2);
 
-      // קו — בין שני המספרים
-      const lineY = cy - 8;
+      // שורה 2: פעולה + מספר קטן
+      draftCtx.textAlign = 'left';
+      draftCtx.fillText(op, leftEdge, cy + rowH/2);
+      draftCtx.textAlign = 'right';
+      draftCtx.fillText(b, rightEdge, cy + rowH/2);
+
+      // קו מתחת לשני המספרים
+      const lineY = cy + rowH/2 + fs*0.25;
       draftCtx.strokeStyle = '#1a3a6e';
       draftCtx.lineWidth = 3;
       draftCtx.beginPath();
-      draftCtx.moveTo(cx - lineW/2, lineY);
+      draftCtx.moveTo(leftEdge, lineY);
       draftCtx.lineTo(rightEdge, lineY);
       draftCtx.stroke();
-
-      // שורה 2: פעולה + מספר שני
-      draftCtx.textAlign = 'left';
-      draftCtx.fillText(op, cx - lineW/2, cy + rowH/2);
-      draftCtx.textAlign = 'right';
-      draftCtx.fillText(b, rightEdge, cy + rowH/2);
 
       draftCtx.restore();
       return;
